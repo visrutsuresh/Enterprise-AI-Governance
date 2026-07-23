@@ -1,0 +1,387 @@
+[
+  {
+    "asset": {
+      "asset_id": "AI-9001",
+      "type": "model",
+      "name": "Loan Decision Scorer v2",
+      "owner": "Tom Weller, Marketing",
+      "purpose": "Scores personal loan applications for approval",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "credit history",
+        "customer PII",
+        "financial records"
+      ],
+      "third_party": "OpenAI API",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "high",
+      "policy_violations": [
+        "POL-01",
+        "POL-02",
+        "POL-03",
+        "POL-09"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9002",
+      "type": "model",
+      "name": "CV Screening Ranker v3",
+      "owner": "Ana Sousa, Customer Ops",
+      "purpose": "Ranks incoming job applications for recruiters",
+      "lifecycle": "production",
+      "deployment": "GCP us-west1, internal API",
+      "data_touched": [
+        "customer PII",
+        "employee records"
+      ],
+      "third_party": "Cohere",
+      "human_oversight": "on-call reviewer approves before send",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "high",
+      "policy_violations": [
+        "POL-01",
+        "POL-07"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9003",
+      "type": "model",
+      "name": "Claims Fast-Track Model",
+      "owner": "Dev Chandra, Platform",
+      "purpose": "Decides which insurance claims skip manual review",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "customer PII",
+        "financial records",
+        "health records"
+      ],
+      "third_party": "OpenAI API",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "high",
+      "policy_violations": [
+        "POL-01",
+        "POL-02",
+        "POL-04",
+        "POL-09"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9004",
+      "type": "model",
+      "name": "Fraud Flagging Engine v1",
+      "owner": "Mei Lin, HR",
+      "purpose": "Flags suspicious transactions for the fraud desk",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "financial records",
+        "transaction logs"
+      ],
+      "third_party": null,
+      "human_oversight": "quarterly output audit",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "high",
+      "policy_violations": [
+        "POL-09"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9005",
+      "type": "agent",
+      "name": "Support Chat Agent v2",
+      "owner": "Jonas Beck, Fraud",
+      "purpose": "Answers customer support questions in the web portal",
+      "lifecycle": "production",
+      "deployment": "AWS eu-central-1, internal API",
+      "data_touched": [
+        "customer PII"
+      ],
+      "third_party": null,
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "limited",
+      "policy_violations": [
+        "POL-02",
+        "POL-06",
+        "POL-10"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9006",
+      "type": "model",
+      "name": "Marketing Copy Generator",
+      "owner": "Sara Ilic, Data Science",
+      "purpose": "Drafts campaign copy for the marketing team",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "public web data"
+      ],
+      "third_party": null,
+      "human_oversight": "quarterly output audit",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "limited",
+      "policy_violations": []
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9007",
+      "type": "agent",
+      "name": "Onboarding Helper Bot v4",
+      "owner": "Ravi Menon, Claims",
+      "purpose": "Walks new customers through account setup",
+      "lifecycle": "production",
+      "deployment": "AWS us-east-1, internal API",
+      "data_touched": [
+        "customer PII"
+      ],
+      "third_party": "AWS Bedrock",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "limited",
+      "policy_violations": [
+        "POL-01",
+        "POL-02",
+        "POL-06",
+        "POL-07",
+        "POL-10"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9008",
+      "type": "model",
+      "name": "Churn Prediction Model v1",
+      "owner": "Lucy Grant, Compliance",
+      "purpose": "Predicts which customers are likely to leave",
+      "lifecycle": "production",
+      "deployment": "",
+      "data_touched": [
+        "customer PII"
+      ],
+      "third_party": null,
+      "human_oversight": "analyst reviews every rejection",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "minimal",
+      "policy_violations": []
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9009",
+      "type": "model",
+      "name": "Ticket Routing Classifier",
+      "owner": "Omar Haddad, Logistics",
+      "purpose": "Routes internal tickets to the right team",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "support transcripts"
+      ],
+      "third_party": "AWS Bedrock",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "minimal",
+      "policy_violations": [
+        "POL-02"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9010",
+      "type": "model",
+      "name": "Invoice Matching Model v3",
+      "owner": "Elena Petrova, Finance",
+      "purpose": "Matches supplier invoices to purchase orders",
+      "lifecycle": "production",
+      "deployment": "AWS eu-west-1, internal API",
+      "data_touched": [
+        "financial records"
+      ],
+      "third_party": "Vertex AI",
+      "human_oversight": "on-call reviewer approves before send",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "minimal",
+      "policy_violations": [
+        "POL-09"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9011",
+      "type": "model",
+      "name": "Log Anomaly Detector v4",
+      "owner": "Chris Doyle, IT Security",
+      "purpose": "Spots unusual patterns in platform telemetry",
+      "lifecycle": "production",
+      "deployment": "AWS eu-central-1, internal API",
+      "data_touched": [
+        "telemetry"
+      ],
+      "third_party": "Cohere",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "minimal",
+      "policy_violations": [
+        "POL-02"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9012",
+      "type": "agent",
+      "name": "Meeting Summariser",
+      "owner": "Priya Raman, Credit Risk",
+      "purpose": "Summarises internal meetings for staff",
+      "lifecycle": "production",
+      "deployment": "AWS eu-west-1, internal API",
+      "data_touched": [
+        "employee records"
+      ],
+      "third_party": "OpenAI API",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "minimal",
+      "policy_violations": [
+        "POL-02",
+        "POL-06",
+        "POL-10"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9013",
+      "type": "model",
+      "name": "Workplace Sentiment Camera v2",
+      "owner": "Tom Weller, Marketing",
+      "purpose": "Reads employee emotion from office cameras",
+      "lifecycle": "production",
+      "deployment": "on-prem datacenter, internal API",
+      "data_touched": [
+        "biometric data",
+        "employee records"
+      ],
+      "third_party": "Vertex AI",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "unacceptable",
+      "policy_violations": [
+        "POL-02",
+        "POL-05"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9014",
+      "type": "model",
+      "name": "Branch Face-ID Tracker v3",
+      "owner": "Ana Sousa, Customer Ops",
+      "purpose": "Identifies walk-in customers via live camera feed",
+      "lifecycle": "production",
+      "deployment": "Azure ap-south-1, internal API",
+      "data_touched": [
+        "biometric data",
+        "customer PII"
+      ],
+      "third_party": "OpenAI API",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "unacceptable",
+      "policy_violations": [
+        "POL-01",
+        "POL-02",
+        "POL-05",
+        "POL-07"
+      ]
+    }
+  },
+  {
+    "asset": {
+      "asset_id": "AI-9015",
+      "type": "model",
+      "name": "Customer Trust Score",
+      "owner": "Dev Chandra, Platform",
+      "purpose": "Scores customers on general behaviour across products",
+      "lifecycle": "production",
+      "deployment": "Azure ap-south-1, internal API",
+      "data_touched": [
+        "financial records"
+      ],
+      "third_party": "AWS Bedrock",
+      "human_oversight": "",
+      "source": "seed",
+      "assessment": {}
+    },
+    "expected": {
+      "risk_tier": "unacceptable",
+      "policy_violations": [
+        "POL-02",
+        "POL-07",
+        "POL-09"
+      ]
+    }
+  }
+]

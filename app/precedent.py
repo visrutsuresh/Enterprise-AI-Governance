@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import weaviate
 from fastembed import TextEmbedding
 from weaviate.classes.config import DataType, Property
@@ -20,7 +22,11 @@ def embed(text: str) -> list[float]:
     # turn text into 384 numbers that encode what it is about
     global _model
     if _model is None:
-        _model = TextEmbedding()  # bge-small-en-v1.5; the first ever call downloads this
+        # bge-small-en-v1.5; the first ever call downloads it. Cache lives in the
+        # repo (gitignored), not the OS temp dir: temp caches got corrupted once
+        # and a wiped temp would re-download mid-demo.
+        cache = Path(__file__).resolve().parent.parent / ".fastembed_cache"
+        _model = TextEmbedding(cache_dir=str(cache))
     return list(_model.embed([text]))[0].tolist()
 
 
