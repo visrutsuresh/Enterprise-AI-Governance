@@ -35,6 +35,7 @@ class GovernanceState(TypedDict):
     asset_id: str
     status: str  # processing | assessed | flagged | error
     stage: str  # narration key: intake | orchestrating | inspecting | rolling_up | done
+    description: str  # the messy registration text the inventory agent canonicalises
     asset: dict  # the canonical AssetRecord (schemas.py)
     applicable_inspectors: list  # picked by the orchestrator (D46); default = all five
     findings_raw: Annotated[list, operator.add]  # inspectors append here in parallel

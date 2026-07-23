@@ -1,15 +1,19 @@
 import os
+import threading
 import uuid
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app import audit, precedent, store
+from app.graph import graph, initial_state
 from app.schemas import UserCreate, UserUpdate
 from app.users import (
     User,
@@ -68,8 +72,61 @@ def brand_config():
     }
 
 
-# --- assets: read-only for now. Registration (POST) arrives with the
-# --- per-asset graph in Phase 4; Phase 0 is the empty-but-running shell.
+# --- assets ------------------------------------------------------------------
+
+PIPELINE_TIMEOUT_S = 1500  # 25 min wall clock; the per-node guards in graph.py (1200s + one retry) do the real capping
+TERMINAL_STATUSES = ("assessed", "error")
+
+
+class RegisterIn(BaseModel):
+    description: str
+
+
+def _invoke_guarded(asset_id: str, initial: dict):
+    # ONE attempt: every node already retries once inside guarded(), so an outer
+    # retry would re-run the whole assessment and double the Modal bill
+    print(f"[pipeline] {asset_id} start", flush=True)
+    box = {}
+
+    def work():
+        try:
+            box["final"] = graph.invoke(initial, {"recursion_limit": 40})
+        except Exception as e:
+            box["error"] = str(e)
+
+    th = threading.Thread(target=work, daemon=True)  # daemon: a hung run is abandoned, never blocks shutdown
+    th.start()
+    th.join(PIPELINE_TIMEOUT_S)
+    if "final" in box:
+        print(f"[pipeline] {asset_id} done", flush=True)
+        return box["final"]
+    print(f"[pipeline] {asset_id} failed: {box.get('error', 'timeout')}", flush=True)
+    return None
+
+
+def _process(asset_id: str, description: str):
+    initial = initial_state(asset_id, description)
+    final = _invoke_guarded(asset_id, initial)
+    if final is None:
+        # a dead run must SAY it died, never strand at "processing" (the #1 lesson)
+        initial["status"] = "error"
+        initial["error"] = "The assessment crashed or timed out before finishing. Nothing was saved half-done: register the asset again."
+        store.save(initial)
+        return
+    if final.get("status") not in TERMINAL_STATUSES:
+        final["status"] = "error"
+        final["error"] = final.get("error") or "The assessment ended without a verdict. Register the asset again."
+    store.save(final)
+
+
+@app.post("/assets")
+def register_asset(payload: RegisterIn, background: BackgroundTasks, user: User = Depends(require_reviewer)):
+    if not payload.description.strip():
+        raise HTTPException(status_code=400, detail="describe the AI system to register")
+    asset_id = f"AI-{uuid.uuid4().hex[:8]}"
+    store.save_pending(asset_id, payload.description.strip()[:80], "pipeline", datetime.now(timezone.utc))
+    background.add_task(_process, asset_id, payload.description.strip())
+    return {"asset_id": asset_id, "status": "processing"}
 
 
 @app.get("/assets")
