@@ -1,0 +1,66 @@
+{
+  "pack_id": "acme-v1",
+  "name": "Acme Corp internal AI policy",
+  "rules": [
+    {
+      "id": "POL-01",
+      "title": "No customer PII to third-party models",
+      "applies_to": { "data_touched": ["customer PII"], "third_party": true },
+      "severity": "high"
+    },
+    {
+      "id": "POL-02",
+      "title": "Production AI requires named human oversight",
+      "applies_to": { "lifecycle": ["production"], "human_oversight": null },
+      "severity": "high"
+    },
+    {
+      "id": "POL-03",
+      "title": "Credit and lending decisions require a recorded fairness assessment",
+      "applies_to": { "data_touched": ["credit history"] },
+      "severity": "high"
+    },
+    {
+      "id": "POL-04",
+      "title": "Health data never leaves in-house systems",
+      "applies_to": { "data_touched": ["health records"], "third_party": true },
+      "severity": "high"
+    },
+    {
+      "id": "POL-05",
+      "title": "Biometric data is prohibited in any AI system",
+      "applies_to": { "data_touched": ["biometric data"] },
+      "severity": "high"
+    },
+    {
+      "id": "POL-06",
+      "title": "Customer-facing agents must disclose they are AI",
+      "applies_to": { "type": ["agent"] },
+      "severity": "medium"
+    },
+    {
+      "id": "POL-07",
+      "title": "Production workloads run in EU regions only",
+      "applies_to": { "lifecycle": ["production"], "deployment": ["us-east", "us-west", "ap-south"] },
+      "severity": "medium"
+    },
+    {
+      "id": "POL-08",
+      "title": "Retired assets must be undeployed",
+      "applies_to": { "lifecycle": ["retired"], "deployment": true },
+      "severity": "medium"
+    },
+    {
+      "id": "POL-09",
+      "title": "Financial data access is reviewed quarterly",
+      "applies_to": { "data_touched": ["financial records", "credit history"] },
+      "severity": "low"
+    },
+    {
+      "id": "POL-10",
+      "title": "Autonomous agents need a documented off-switch",
+      "applies_to": { "type": ["agent"], "human_oversight": null },
+      "severity": "high"
+    }
+  ]
+}

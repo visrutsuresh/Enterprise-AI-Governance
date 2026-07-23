@@ -1,0 +1,43 @@
+{
+  "pack_id": "globex-v1",
+  "name": "Globex Industries AI policy",
+  "note": "Deliberately different from acme so a live pack swap visibly changes the flags (NFR-1). Globex allows vetted third-party PII processing but bans production agents outright.",
+  "rules": [
+    {
+      "id": "GLX-01",
+      "title": "No autonomous agents in production",
+      "applies_to": { "type": ["agent"], "lifecycle": ["production"] },
+      "severity": "high"
+    },
+    {
+      "id": "GLX-02",
+      "title": "Health and biometric data prohibited in any AI system",
+      "applies_to": { "data_touched": ["health records", "biometric data"] },
+      "severity": "high"
+    },
+    {
+      "id": "GLX-03",
+      "title": "Every production model requires human oversight",
+      "applies_to": { "lifecycle": ["production"], "human_oversight": null },
+      "severity": "high"
+    },
+    {
+      "id": "GLX-04",
+      "title": "Credit decisions require fairness assessment",
+      "applies_to": { "data_touched": ["credit history"] },
+      "severity": "medium"
+    },
+    {
+      "id": "GLX-05",
+      "title": "All third-party AI vendors must be on the vetted list",
+      "applies_to": { "third_party": true },
+      "severity": "low"
+    },
+    {
+      "id": "GLX-06",
+      "title": "Retired assets must be undeployed",
+      "applies_to": { "lifecycle": ["retired"], "deployment": true },
+      "severity": "high"
+    }
+  ]
+}

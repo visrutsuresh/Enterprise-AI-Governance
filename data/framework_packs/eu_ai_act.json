@@ -1,0 +1,103 @@
+{
+  "pack_id": "eu_ai_act-v1",
+  "name": "EU AI Act (demo subset)",
+  "note": "Honest demo scope, not legal completeness (D29). Representative tiers and controls only.",
+  "tiers": [
+    {
+      "tier": "unacceptable",
+      "rank": 0,
+      "description": "Practices the Act prohibits outright. These systems may not be deployed at all.",
+      "criteria": [
+        "social scoring of individuals by general behaviour",
+        "manipulative or deceptive techniques that materially distort behaviour",
+        "real-time remote biometric identification in public spaces",
+        "emotion recognition in workplaces or schools"
+      ],
+      "controls": [
+        {
+          "id": "EU-U-01",
+          "title": "Prohibited practice",
+          "requirement": "Do not build or deploy. Existing systems must be decommissioned."
+        }
+      ]
+    },
+    {
+      "tier": "high",
+      "rank": 1,
+      "description": "Systems that decide over people's access to credit, work, education, essential services, or that run critical infrastructure.",
+      "criteria": [
+        "creditworthiness or loan decisions",
+        "recruitment, promotion or termination decisions",
+        "access to essential public or private services",
+        "critical infrastructure operation",
+        "law enforcement or border control use"
+      ],
+      "controls": [
+        {
+          "id": "EU-H-01",
+          "title": "Risk management system",
+          "requirement": "A documented, maintained risk assessment covering the system's lifecycle."
+        },
+        {
+          "id": "EU-H-02",
+          "title": "Human oversight",
+          "requirement": "A named human can understand, intervene on, and override the system's output."
+        },
+        {
+          "id": "EU-H-03",
+          "title": "Logging and traceability",
+          "requirement": "Automatic event logs sufficient to reconstruct how a decision was reached."
+        },
+        {
+          "id": "EU-H-04",
+          "title": "Accuracy and bias testing",
+          "requirement": "Documented testing for accuracy, robustness and discriminatory outcomes before release."
+        },
+        {
+          "id": "EU-H-05",
+          "title": "Registration",
+          "requirement": "The system is recorded in the organisation's AI register with owner and purpose."
+        }
+      ]
+    },
+    {
+      "tier": "limited",
+      "rank": 2,
+      "description": "Systems that interact with people or generate content. The risk is deception, so the duty is transparency.",
+      "criteria": [
+        "chatbots and conversational agents facing customers",
+        "systems generating text, image, audio or video content",
+        "emotion recognition outside prohibited contexts"
+      ],
+      "controls": [
+        {
+          "id": "EU-L-01",
+          "title": "AI disclosure",
+          "requirement": "People are told they are interacting with an AI system."
+        },
+        {
+          "id": "EU-L-02",
+          "title": "Content labelling",
+          "requirement": "AI-generated content is marked as such."
+        }
+      ]
+    },
+    {
+      "tier": "minimal",
+      "rank": 3,
+      "description": "Everything else: internal tooling, filters, recommenders with no material effect on people's rights.",
+      "criteria": [
+        "internal productivity or analytics tooling",
+        "spam filtering, routing, deduplication",
+        "batch processing with no direct effect on individuals"
+      ],
+      "controls": [
+        {
+          "id": "EU-M-01",
+          "title": "Voluntary code of conduct",
+          "requirement": "No mandatory obligations. Follow internal AI policy as a baseline."
+        }
+      ]
+    }
+  ]
+}
