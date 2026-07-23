@@ -1,0 +1,41 @@
+# Local databases for #6 Enterprise AI Governance.
+# Its OWN stack: separate containers, separate volumes, separate ports,
+# so #1, #4 and #6 can all run at the same time:
+#   Postgres 5435 (#1 uses 5432, #4 uses 5433, odyssey-db2 squats 5434)
+#   Weaviate 8082 / 50053 (#1 uses 8080/50051, #4 uses 8081/50052)
+# Start:  docker compose up -d      Stop:  docker compose down
+# Wipe this project's data only (never touches #1 or #4):  docker compose down -v
+name: enterprise-ai-governance
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.38.2
+    ports:
+      - "8082:8080"      # REST API (what we talk to from Python)
+      - "50053:50051"    # gRPC API (faster channel the client also uses)
+    restart: on-failure:0
+    environment:
+      CLUSTER_HOSTNAME: 'node1'
+      CLUSTER_ADVERTISE_ADDR: '127.0.0.1'
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_API_BASED_MODULES: 'true'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  postgres:
+    image: postgres:17
+    ports:
+      - "5435:5432"
+    restart: on-failure:0
+    environment:
+      POSTGRES_USER: governance
+      POSTGRES_PASSWORD: 7d2f1c8ab94e5f60d3a8b17c4e92f051
+      POSTGRES_DB: governance
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  weaviate_data:
+  pgdata:
