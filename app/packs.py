@@ -34,3 +34,25 @@ def load_policy_pack() -> dict:
 
 def load_framework_pack() -> dict:
     return _load("framework_packs", "FRAMEWORK_PACK")
+
+
+def fires(rule: dict, asset: dict) -> bool:
+    """Does this policy rule's applies_to match this asset? Deterministic, the
+    match spec documented in data/framework_packs/README.md. Used by the bulk
+    pack-swap re-score; the live inspectors make the same call with judgement."""
+    for field, want in rule.get("applies_to", {}).items():
+        have = asset.get(field)
+        if want is True:
+            ok = bool(have)
+        elif want is None:
+            ok = not have
+        elif isinstance(want, list):
+            if isinstance(have, list):
+                ok = bool({str(w).lower() for w in want} & {str(h).lower() for h in have})
+            else:
+                ok = any(str(w).lower() in str(have or "").lower() for w in want)
+        else:
+            ok = have == want
+        if not ok:
+            return False
+    return True

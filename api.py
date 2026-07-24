@@ -44,7 +44,7 @@ app = FastAPI(title="Enterprise AI Governance API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -160,6 +160,38 @@ def get_audit(asset_id: str, user: User = Depends(require_reviewer)):
         "intact": broken_at == -1,
         "broken_at": None if broken_at == -1 else broken_at,
     }
+
+
+# --- packs: the NFR-1 swap surface ------------------------------------------
+
+
+class PackSwapIn(BaseModel):
+    policy_pack: str | None = None
+    framework_pack: str | None = None
+
+
+@app.get("/packs")
+def active_packs(user: User = Depends(require_reviewer)):
+    from app import packs as _packs
+    p, f = _packs.load_policy_pack(), _packs.load_framework_pack()
+    return {"policy_pack": {"id": p["pack_id"], "name": p.get("name", ""), "rules": len(p["rules"])},
+            "framework_pack": {"id": f["pack_id"], "name": f.get("name", ""), "tiers": len(f["tiers"])}}
+
+
+@app.post("/packs/activate")
+def activate_packs(payload: PackSwapIn, user: User = Depends(require_admin)):
+    # the stage moment: change the env var, nothing else, then re-score.
+    # Loaders read the env at call time, so every later model call and the
+    # deterministic re-score below see the new pack with zero code change.
+    from app import packs as _packs
+    for env_var, name, kind in (("POLICY_PACK", payload.policy_pack, "policy_packs"),
+                                ("FRAMEWORK_PACK", payload.framework_pack, "framework_packs")):
+        if name:
+            if not (_packs.DATA_DIR / kind / f"{name}.json").exists():
+                raise HTTPException(status_code=404, detail=f"no pack named {name!r} in {kind}")
+            os.environ[env_var] = name
+    rescore = sweep.rescore_policy()
+    return {"active": active_packs(user), "rescore": rescore}
 
 
 # --- the other three clocks: nightly sweep + on-demand (D41) ----------------

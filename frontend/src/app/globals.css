@@ -1,0 +1,559 @@
+@import "tailwindcss";
+
+/* ============================================================
+   PAPYRUS SKIN TOKENS (Design D35).
+   SKIN DECIDED 2026-07-20: NEUMORPH. It is the live block below.
+   Flat parchment classic was the rejected finalist and is kept
+   only as a commented record at the very bottom of this file.
+   Every page reads these variables, never a raw hex, so the whole
+   app repaints from here without touching a page file.
+
+   The one idea that makes this skin work: the ground and the
+   panels are the SAME warm clay color. Nothing is separated by
+   a fill or a border. Depth comes from --lift, a light shadow
+   up-left and a dark one down-right, so a panel reads as pressed
+   OUT of the clay. --press is the same trick inverted, for things
+   that should read as pushed IN (inputs, a progress trough).
+   ============================================================ */
+
+:root {
+  --parchment: #eae6db; /* the clay: page ground AND panel fill */
+  --paper: #eae6db; /* deliberately identical, see above */
+  --ink: #2a2318; /* main text */
+  --ink-soft: #78705f; /* secondary text */
+  --line: rgba(
+    122,
+    113,
+    95,
+    0.18
+  ); /* hairline separators ONLY, never panel edges */
+  --accent: #395b64; /* ink-teal */
+  --accent-deep: #2a454c;
+  --accent-wash: rgba(57, 91, 100, 0.1);
+  --rust: #8b4a2e; /* severity: serious */
+  --rust-wash: rgba(139, 74, 46, 0.1);
+  --olive: #4a5530; /* good, decided */
+  --olive-wash: rgba(122, 139, 93, 0.18);
+  --amber: #8a6a1b; /* severity: worth a look */
+  --amber-wash: rgba(217, 179, 108, 0.18);
+  --attn-bg: rgba(217, 179, 108, 0.18); /* needs-a-person note */
+  --attn-ink: #8a6a1b;
+
+  /* the depth system: this IS the skin */
+  --lift:
+    9px 9px 18px rgba(166, 157, 135, 0.55),
+    -9px -9px 18px rgba(255, 255, 255, 0.95);
+  --lift-hi: 12px 12px 22px rgba(166, 157, 135, 0.6), -12px -12px 22px #ffffff;
+  --press:
+    inset 5px 5px 10px rgba(166, 157, 135, 0.5),
+    inset -5px -5px 10px rgba(255, 255, 255, 0.9);
+  --radius: 18px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --background: var(--parchment);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-gsans);
+  --font-mono: var(--font-array);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-gsans), sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-cabinet), sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.font-array {
+  font-family: var(--font-array), monospace;
+  letter-spacing: 0.03em;
+}
+
+/* ---------- the one raised-surface class ---------- */
+/* Anything that should float above the clay gets .panel. Page files
+   say className="panel ..." instead of spelling out a background and
+   a border, so no page file knows what the skin is. */
+
+.panel {
+  background: var(--paper);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--lift);
+  transition:
+    box-shadow 0.3s var(--ease),
+    transform 0.3s var(--ease);
+}
+.panel.click {
+  cursor: pointer;
+}
+.panel.click:hover {
+  box-shadow: var(--lift-hi);
+  transform: translateY(-2px);
+}
+.panel.click:active {
+  box-shadow: var(--press);
+  transform: none;
+}
+
+/* pressed-in surfaces: form fields, the diff box, the progress trough */
+.field {
+  background: var(--paper);
+  border: none;
+  border-radius: 10px;
+  box-shadow: var(--press);
+  color: var(--ink);
+  outline: none;
+}
+
+/* ---------- small shared pieces ---------- */
+
+.label {
+  font-family: var(--font-array), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.badge {
+  font-family: var(--font-array), monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  padding: 5px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  justify-self: start;
+}
+.badge.working {
+  background: var(--accent-wash);
+  color: var(--accent-deep);
+}
+.badge.review {
+  background: var(--rust-wash);
+  color: var(--rust);
+}
+.badge.done {
+  background: var(--olive-wash);
+  color: var(--olive);
+}
+.badge.attn {
+  background: #f1e5d0;
+  color: #7a5a18;
+}
+.badge.err {
+  background: var(--rust-wash);
+  color: var(--rust);
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  flex-shrink: 0;
+  animation: breathe 1.6s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  opacity: 0;
+  animation: rise 0.5s var(--ease) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* the docket row: a raised card, not a table row */
+.card-row {
+  background: var(--paper);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--lift);
+  padding: 18px 24px;
+  margin-bottom: 14px;
+  transition:
+    box-shadow 0.3s var(--ease),
+    transform 0.3s var(--ease);
+}
+.card-row.click {
+  cursor: pointer;
+}
+.card-row.click:hover {
+  box-shadow: var(--lift-hi);
+  transform: translateY(-2px);
+}
+.card-row.click:active {
+  box-shadow: var(--press);
+  transform: none;
+}
+
+.attn-note {
+  grid-column: 1 / -1;
+  background: var(--attn-bg);
+  border-radius: 10px;
+  padding: 11px 15px;
+  font-size: 13.5px;
+  color: var(--attn-ink);
+}
+
+.story {
+  background: var(--paper);
+  box-shadow: var(--lift);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 20px;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+
+/* ---------- left pane: their version ---------- */
+
+.clause {
+  padding: 13px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  transition: all 0.3s var(--ease);
+}
+.clause h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.clause p {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+.clause.flagged {
+  cursor: pointer;
+}
+.clause.flagged p {
+  color: var(--ink);
+}
+.clause.flagged.sev-high {
+  background: var(--rust-wash);
+}
+.clause.flagged.sev-med {
+  background: var(--amber-wash);
+}
+.clause.flagged.sev-low {
+  background: var(--amber-wash);
+}
+.clause.flagged:hover {
+  border-color: var(--rust);
+}
+.clause.flagged.sel {
+  border-color: var(--rust);
+}
+.clause.decided {
+  background: var(--olive-wash) !important;
+}
+.clause.decided:hover,
+.clause.decided.sel {
+  border-color: var(--olive);
+}
+
+.fmark {
+  font-family: var(--font-array), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  float: right;
+  margin-left: 10px;
+}
+.fmark.high {
+  color: var(--rust);
+}
+.fmark.med {
+  color: var(--amber);
+}
+.fmark.low {
+  color: var(--olive);
+}
+/* ---------- right pane: your redline ---------- */
+
+.rl {
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: var(--lift);
+  transition: all 0.35s var(--ease);
+}
+.rl.sel {
+  border-color: var(--accent);
+  box-shadow: var(--lift-hi);
+}
+.rl-head {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rl-head h3 {
+  font-size: 13px;
+  font-weight: 700;
+}
+.rl-state {
+  margin-left: auto;
+  font-family: var(--font-array), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rl-state.open {
+  color: var(--rust);
+}
+.rl-state.acc {
+  color: var(--olive);
+}
+.rl-state.rej {
+  color: var(--ink-soft);
+}
+.rl-state.edit {
+  color: var(--accent);
+}
+.rl-inner {
+  padding: 16px;
+}
+.rl-quiet {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.plainline {
+  font-family: var(--font-cabinet), sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.termline {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.trio {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.trio > div {
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 7px;
+}
+.trio .wrong {
+  background: var(--rust-wash);
+}
+.trio .change {
+  background: var(--accent-wash);
+}
+.trio .ignore {
+  background: var(--amber-wash);
+}
+.trio b {
+  font-family: var(--font-array), monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+}
+
+.diff {
+  font-size: 13.5px;
+  background: var(--paper);
+  border: none;
+  box-shadow: var(--press);
+  border-radius: 9px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.diff del {
+  color: var(--rust);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  opacity: 0.75;
+}
+.diff ins {
+  color: var(--accent-deep);
+  text-decoration: none;
+  border-bottom: 2px solid var(--accent);
+  font-weight: 500;
+}
+.who {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+
+.act {
+  font-family: var(--font-cabinet), sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--lift);
+  cursor: pointer;
+  transition: all 0.25s var(--ease);
+}
+.act:active {
+  box-shadow: var(--press);
+}
+.act:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: var(--lift);
+}
+.act-acc {
+  background: var(--accent);
+  color: #fff;
+}
+.act-acc:hover {
+  background: var(--accent-deep);
+}
+.act-rej:hover {
+  border-color: var(--rust);
+  color: var(--rust);
+}
+.act-edit:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.verdict {
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  margin-top: 10px;
+}
+.verdict.acc {
+  background: var(--olive-wash);
+  color: var(--olive);
+}
+.verdict.rej {
+  background: var(--accent-wash);
+  color: var(--ink-soft);
+}
+
+.pbar {
+  width: 150px;
+  height: 6px;
+  background: var(--accent-wash);
+  box-shadow: var(--press);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.pbar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.6s var(--ease);
+}
+
+.finish {
+  font-family: var(--font-cabinet), sans-serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 10px 20px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  background: var(--paper);
+  color: var(--ink-soft);
+  box-shadow: var(--lift);
+  transition: all 0.3s var(--ease);
+}
+.finish.ready {
+  background: var(--accent);
+  color: #fff;
+}
+.finish.ready:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--lift-hi);
+}
+.finish:active {
+  box-shadow: var(--press);
+  transform: none;
+}
+
+.doc {
+  white-space: pre-wrap;
+  font-family: var(--font-gsans), sans-serif;
+  font-size: 13.5px;
+  line-height: 1.7;
+  background: var(--paper);
+  border: none;
+  box-shadow: var(--lift);
+  border-radius: var(--radius);
+  padding: 28px 30px;
+}
+
+/* ============================================================
+   REJECTED FINALIST, kept as the record of the D35 decision.
+   Flat parchment classic: separate panel colour, 1px borders,
+   no shadows. Do NOT uncomment: the component styles above are
+   built on --lift / --press and would need rewriting too.
+   :root {
+     --parchment: #f6f3eb; --paper: #fdfbf6;
+     --ink: #211a12; --ink-soft: #5c5344; --line: #e3dccb;
+     --accent: #395b64; --accent-deep: #2a454c; --accent-wash: #eaf0f0;
+     --rust: #8b4a2e; --rust-wash: #f5e9e2;
+     --olive: #4a5530; --olive-wash: #edefe3;
+     --amber: #8a6a1b; --amber-wash: #f5efdd;
+     --attn-bg: #fbf6ea; --attn-line: #ead9b0; --attn-ink: #6b5215;
+   }
+   ============================================================ */
+
+/* #6 addition: the one shared button */
+.btn {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn:hover { background: var(--accent-deep); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }

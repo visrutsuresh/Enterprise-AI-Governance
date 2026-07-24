@@ -116,7 +116,8 @@ def list_all() -> list[dict]:
         cur.execute("""
             SELECT asset_id, name, type, owner, lifecycle, status, stage,
                    risk_level, risk_tier, source, created_at,
-                   (SELECT COUNT(*) FROM jsonb_array_elements(COALESCE(state->'findings_raw', '[]'::jsonb)) AS f
+                   (SELECT COUNT(*) FROM jsonb_array_elements(
+                        COALESCE(state->'asset'->'assessment'->'findings', '[]'::jsonb)) AS f
                      WHERE f->>'status' = 'open')::int AS open_findings
             FROM assets ORDER BY created_at DESC
         """)
