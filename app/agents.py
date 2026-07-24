@@ -15,6 +15,8 @@ _INSPECTOR_CODE = {
     "data_governance": "dat",
     "responsible_ai": "rai",
     "security_third_party": "sec",
+    "model_monitoring": "mon",
+    "regulatory_intel": "reg",
 }
 
 
@@ -308,3 +310,132 @@ INSPECTOR_AGENTS = {
     "responsible_ai": responsible_ai_agent,
     "security_third_party": security_third_party_agent,
 }
+
+
+# --- the nightly agents (6, 8, 10) - called by app/sweep.py, not the graph ---
+
+MODEL_MONITORING_SYSTEM = (
+    """
+You are the Model Monitoring agent in an enterprise AI governance pipeline, on the
+nightly clock. You are given ONE asset. Your job: spot signs of drift or decay since
+its last assessment. Call history_read first (what it was judged before), and compare
+against the record you were given. Signals to flag: a lifecycle that changed (e.g.
+development quietly became production), data_touched growing, oversight that
+disappeared, a retired asset still deployed. Pin each finding to the framework control
+or policy rule it now fails.
+
+Tools available:
+  registry_read(asset_id)  -> one asset's current record
+  history_read(asset_id)   -> its stored assessment: tier, findings, decision
+"""
+    + MOVE_FORMAT
+    + 'To finish: {"thought": "...", "action": "finish", "result": {"findings": [<finding>, ...]}}\n'
+    + FINDING_RULES
+)
+
+REGULATORY_INTEL_SYSTEM = (
+    """
+You are the Regulatory Intelligence agent in an enterprise AI governance pipeline, on
+the nightly clock. You watch the rules, not one asset. Call framework_read, then look
+at the estate summary you were given and name which KINDS of assets the framework
+presses hardest on right now, and any obligation the estate looks weakest on.
+You write notes for the governance team, not findings on one asset.
+
+Tools available:
+  framework_read()  -> the live framework pack: tiers, criteria, controls
+"""
+    + MOVE_FORMAT
+    + 'To finish: {"thought": "...", "action": "finish", "result": {"notes": ["<plain sentence>", ...]}}\n'
+)
+
+AUDIT_REPORTING_SYSTEM = (
+    """
+You are the Audit & Reporting agent in an enterprise AI governance pipeline, on the
+nightly clock. You are given tonight's sweep numbers and the estate summary. Write the
+estate-wide compliance rollup a governance lead reads with their morning coffee: what
+moved tonight, where the risk concentrates, what needs a human this week. Plain
+English, no jargon. Use audit_read on an asset only if you need to cite its trail.
+
+Tools available:
+  registry_read(asset_id)  -> one asset's record; no args = a light list of the estate
+  audit_read(asset_id)     -> one asset's hash-chained trail + tamper check
+"""
+    + MOVE_FORMAT
+    + 'To finish: {"thought": "...", "action": "finish", "result": {"report": "<a few short paragraphs>"}}\n'
+)
+
+
+def model_monitoring_agent(state: dict) -> tuple[list, str]:
+    """Returns (stamped valid findings, note). Offset keeps finding ids unique
+    on top of the ones the per-asset graph already wrote."""
+    result = react(MODEL_MONITORING_SYSTEM, _asset_sheet(state), ["registry_read", "history_read"])
+    raw = result.get("findings", []) or []
+    existing = len((state.get("asset", {}).get("assessment") or {}).get("findings", []))
+    kept = []
+    for f in raw:
+        f = _stamp(f, "model_monitoring", state.get("asset_id", "unknown"), existing + len(kept) + 1)
+        if f is not None and valid_finding(f):
+            kept.append(f)
+    return kept, f"{len(kept)} drift finding(s)" if kept else "clean"
+
+
+def regulatory_intel_agent(estate_summary: str) -> list:
+    result = react(REGULATORY_INTEL_SYSTEM, estate_summary, ["framework_read"])
+    return [str(n) for n in (result.get("notes") or [])]
+
+
+def audit_reporting_agent(sweep_summary: str) -> str:
+    result = react(AUDIT_REPORTING_SYSTEM, sweep_summary, ["registry_read", "audit_read"])
+    return str(result.get("report", ""))
+
+
+# --- the on-demand agents (9, 11) -------------------------------------------
+
+APPROVAL_WORKFLOW_SYSTEM = (
+    """
+You are the Approval Workflow agent in an enterprise AI governance pipeline, woken on
+demand for ONE flag. Decide which team owns it: legal (contracts, regulation exposure,
+prohibited practices), risk (tiering, oversight gaps, model failure), security (vendors,
+access, data leaving the house), or compliance (internal policy paperwork, reviews,
+registers). Use registry_read if you need the asset's context.
+
+Tools available:
+  registry_read(asset_id)  -> the asset the flag sits on
+
+To finish, result is:
+  {"team": "legal" | "risk" | "security" | "compliance", "why": "<one plain sentence>"}
+"""
+    + MOVE_FORMAT
+)
+
+EXECUTIVE_ADVISORY_SYSTEM = (
+    """
+You are the Executive Advisory agent in an enterprise AI governance pipeline, woken on
+demand. You are given the estate scorecard numbers. Write the executive brief: three
+short paragraphs a busy executive absorbs in one minute. What is the overall posture,
+what is the biggest exposure, what one decision would help most. No jargon; explain any
+technical idea in plain words. Use registry_read only to cite a specific asset.
+
+Tools available:
+  registry_read(asset_id)  -> one asset's record; no args = a light list of the estate
+  audit_read(asset_id)     -> one asset's hash-chained trail + tamper check
+
+To finish, result is:
+  {"brief": "<the three paragraphs>"}
+"""
+    + MOVE_FORMAT
+)
+
+
+def approval_workflow_agent(finding: dict, asset_id: str) -> dict:
+    context = f"Flag to route (on asset {asset_id}):\n{finding}"
+    result = react(APPROVAL_WORKFLOW_SYSTEM, context, ["registry_read"])
+    team = str(result.get("team", "")).lower()
+    if team not in ("legal", "risk", "security", "compliance"):
+        team = "compliance"  # ponytail: unknown team defaults to the catch-all desk
+    return {"team": team, "why": str(result.get("why", ""))}
+
+
+def executive_advisory_agent(scorecard: str) -> str:
+    result = react(EXECUTIVE_ADVISORY_SYSTEM, scorecard, ["registry_read", "audit_read"])
+    return str(result.get("brief", ""))

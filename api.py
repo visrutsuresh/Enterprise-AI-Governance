@@ -12,7 +12,8 @@ from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app import audit, precedent, store
+from app import audit, precedent, store, sweep
+from app.agents import approval_workflow_agent, executive_advisory_agent
 from app.graph import graph, initial_state
 from app.schemas import UserCreate, UserUpdate
 from app.users import (
@@ -159,6 +160,60 @@ def get_audit(asset_id: str, user: User = Depends(require_reviewer)):
         "intact": broken_at == -1,
         "broken_at": None if broken_at == -1 else broken_at,
     }
+
+
+# --- the other three clocks: nightly sweep + on-demand (D41) ----------------
+
+
+class SweepIn(BaseModel):
+    limit: int = 10
+
+
+@app.post("/sweep/run")
+def run_sweep(payload: SweepIn | None = None, user: User = Depends(require_admin)):
+    # demo endpoint standing in for the nightly cron (plan section 5: a real
+    # scheduler adds ops with no demo value). Synchronous on purpose: the demo
+    # runs it pre-show and wants the report back in the response.
+    limit = payload.limit if payload else 10
+    if not 1 <= limit <= 200:
+        raise HTTPException(status_code=422, detail="limit must be 1-200")
+    return sweep.run_sweep(limit)
+
+
+def _find_finding(finding_id: str):
+    # finding ids look like f-AI-0042-pol-1: the asset id is the middle piece
+    core = finding_id.removeprefix("f-")
+    asset_id = core.rsplit("-", 2)[0] if core.count("-") >= 2 else core
+    state = store.get(asset_id)
+    if state is None:
+        return None, None, None
+    assessment = (state.get("asset", {}).get("assessment") or {})
+    for f in assessment.get("findings", []):
+        if f.get("finding_id") == finding_id:
+            return state, assessment, f
+    return state, assessment, None
+
+
+@app.post("/flags/{finding_id}/route")
+def route_flag(finding_id: str, user: User = Depends(require_reviewer)):
+    state, assessment, finding = _find_finding(finding_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no asset for that finding id")
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found on its asset")
+    routing = approval_workflow_agent(finding, state["asset_id"])
+    finding["routed_to"] = routing["team"]
+    state["audit"] = audit.chain(state.get("audit") or [],
+                                 [f"approval_workflow: {finding_id} routed to {routing['team']} ({routing['why']})"])
+    store.save(state)
+    return {"finding_id": finding_id, **routing}
+
+
+@app.get("/brief")
+def executive_brief(user: User = Depends(require_reviewer)):
+    stats = sweep._estate_stats()
+    brief = executive_advisory_agent(f"Estate scorecard: {stats}")
+    return {"brief": brief, "estate": stats}
 
 
 @app.get("/users/me")

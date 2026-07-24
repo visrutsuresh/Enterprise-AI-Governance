@@ -27,6 +27,9 @@ from app.audit import chain
 
 INSPECTORS = ["policy_compliance", "risk_assessment", "data_governance", "responsible_ai", "security_third_party"]
 
+# the nightly agents also write findings (drift, rule changes), on their own clock (D41)
+SWEEP_AGENTS = ["model_monitoring", "regulatory_intel"]
+
 # the four EU AI Act tiers, worst first (framework pack detail lives in data/)
 RISK_TIERS = ("unacceptable", "high", "limited", "minimal")
 
@@ -54,7 +57,7 @@ def valid_finding(f: dict) -> bool:
     # the gate that drops malformed inspector output before it reaches the record
     return (
         all(f.get(k) for k in REQUIRED_FINDING_FIELDS)
-        and f["inspector"] in INSPECTORS
+        and f["inspector"] in INSPECTORS + SWEEP_AGENTS
         and f["severity"] in ("high", "medium", "low")
     )
 
