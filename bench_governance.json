@@ -1,0 +1,36 @@
+{
+  "mode": "only=AI-9001",
+  "summary": {
+    "assets": 1,
+    "completed": 1,
+    "tier_accuracy": 1,
+    "violation_recall": 0.75,
+    "flag_precision": 0.6,
+    "audit_completeness": 1
+  },
+  "assets": [
+    {
+      "asset_id": "AI-9001",
+      "tier_ok": true,
+      "expected_tier": "high",
+      "got_tier": "high",
+      "recall": 0.75,
+      "precision": 0.6,
+      "caught": [
+        "POL-01",
+        "POL-02",
+        "POL-03"
+      ],
+      "missed": [
+        "POL-09"
+      ],
+      "extra": [
+        "EU-H-02",
+        "EU-H-04"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 213.0
+    }
+  ]
+}

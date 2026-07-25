@@ -6,8 +6,10 @@ MAX_STEPS = 6
 
 
 def _parse(raw: str) -> dict:
-    s, e = raw.find("{"), raw.rfind("}")
-    return json.loads(raw[s : e + 1])
+    # the model sometimes emits a second JSON object or prose after its answer;
+    # take the first complete object instead of slicing to the last brace
+    obj, _ = json.JSONDecoder().raw_decode(raw[raw.find("{") :])
+    return obj
 
 
 def react(system: str, context: str, allowed_tools: list[str], max_steps: int = MAX_STEPS) -> dict:
