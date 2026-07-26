@@ -1,11 +1,11 @@
 {
-  "mode": "only=AI-9001",
+  "mode": "full",
   "summary": {
-    "assets": 1,
-    "completed": 1,
-    "tier_accuracy": 1,
-    "violation_recall": 0.75,
-    "flag_precision": 0.6,
+    "assets": 15,
+    "completed": 15,
+    "tier_accuracy": 0.733,
+    "violation_recall": 0.743,
+    "flag_precision": 0.46,
     "audit_completeness": 1
   },
   "assets": [
@@ -30,7 +30,292 @@
       ],
       "audit_complete": true,
       "status": "assessed",
-      "elapsed_s": 213.0
+      "elapsed_s": 251.1
+    },
+    {
+      "asset_id": "AI-9002",
+      "tier_ok": true,
+      "expected_tier": "high",
+      "got_tier": "high",
+      "recall": 0.5,
+      "precision": 0.25,
+      "caught": [
+        "POL-01"
+      ],
+      "missed": [
+        "POL-07"
+      ],
+      "extra": [
+        "EU-H-02",
+        "EU-H-04",
+        "POL-02"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 237.4
+    },
+    {
+      "asset_id": "AI-9003",
+      "tier_ok": true,
+      "expected_tier": "high",
+      "got_tier": "high",
+      "recall": 0.75,
+      "precision": 0.5,
+      "caught": [
+        "POL-01",
+        "POL-02",
+        "POL-04"
+      ],
+      "missed": [
+        "POL-09"
+      ],
+      "extra": [
+        "EU-H-02",
+        "EU-H-04",
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 317.9
+    },
+    {
+      "asset_id": "AI-9004",
+      "tier_ok": true,
+      "expected_tier": "high",
+      "got_tier": "high",
+      "recall": 0.0,
+      "precision": 0.0,
+      "caught": [],
+      "missed": [
+        "POL-09"
+      ],
+      "extra": [
+        "EU-H-04",
+        "POL-02",
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 178.7
+    },
+    {
+      "asset_id": "AI-9005",
+      "tier_ok": true,
+      "expected_tier": "limited",
+      "got_tier": "limited",
+      "recall": 0.6666666666666666,
+      "precision": 0.6666666666666666,
+      "caught": [
+        "POL-02",
+        "POL-06"
+      ],
+      "missed": [
+        "POL-10"
+      ],
+      "extra": [
+        "EU-L-01"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 162.4
+    },
+    {
+      "asset_id": "AI-9006",
+      "tier_ok": true,
+      "expected_tier": "limited",
+      "got_tier": "limited",
+      "recall": 1.0,
+      "precision": 0.0,
+      "caught": [],
+      "missed": [],
+      "extra": [
+        "POL-02",
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 97.0
+    },
+    {
+      "asset_id": "AI-9007",
+      "tier_ok": true,
+      "expected_tier": "limited",
+      "got_tier": "limited",
+      "recall": 0.4,
+      "precision": 0.4,
+      "caught": [
+        "POL-01",
+        "POL-10"
+      ],
+      "missed": [
+        "POL-02",
+        "POL-06",
+        "POL-07"
+      ],
+      "extra": [
+        "EU-H-02",
+        "EU-H-04",
+        "EU-L-01"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 229.7
+    },
+    {
+      "asset_id": "AI-9008",
+      "tier_ok": false,
+      "expected_tier": "minimal",
+      "got_tier": "high",
+      "recall": 1.0,
+      "precision": 0.0,
+      "caught": [],
+      "missed": [],
+      "extra": [
+        "EU-H-02",
+        "EU-H-04",
+        "POL-02",
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 442.3
+    },
+    {
+      "asset_id": "AI-9009",
+      "tier_ok": true,
+      "expected_tier": "minimal",
+      "got_tier": "minimal",
+      "recall": 1.0,
+      "precision": 0.5,
+      "caught": [
+        "POL-02"
+      ],
+      "missed": [],
+      "extra": [
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 106.5
+    },
+    {
+      "asset_id": "AI-9010",
+      "tier_ok": false,
+      "expected_tier": "minimal",
+      "got_tier": "high",
+      "recall": 1.0,
+      "precision": 0.5,
+      "caught": [
+        "POL-09"
+      ],
+      "missed": [],
+      "extra": [
+        "EU-H-04"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 155.1
+    },
+    {
+      "asset_id": "AI-9011",
+      "tier_ok": true,
+      "expected_tier": "minimal",
+      "got_tier": "minimal",
+      "recall": 1.0,
+      "precision": 1.0,
+      "caught": [
+        "POL-02"
+      ],
+      "missed": [],
+      "extra": [],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 102.6
+    },
+    {
+      "asset_id": "AI-9012",
+      "tier_ok": false,
+      "expected_tier": "minimal",
+      "got_tier": "limited",
+      "recall": 0.6666666666666666,
+      "precision": 0.6666666666666666,
+      "caught": [
+        "POL-02",
+        "POL-10"
+      ],
+      "missed": [
+        "POL-06"
+      ],
+      "extra": [
+        "EU-H-02"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 166.2
+    },
+    {
+      "asset_id": "AI-9013",
+      "tier_ok": true,
+      "expected_tier": "unacceptable",
+      "got_tier": "unacceptable",
+      "recall": 1.0,
+      "precision": 0.6666666666666666,
+      "caught": [
+        "POL-02",
+        "POL-05"
+      ],
+      "missed": [],
+      "extra": [
+        "EU-U-01"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 167.8
+    },
+    {
+      "asset_id": "AI-9014",
+      "tier_ok": true,
+      "expected_tier": "unacceptable",
+      "got_tier": "unacceptable",
+      "recall": 0.75,
+      "precision": 0.75,
+      "caught": [
+        "POL-01",
+        "POL-02",
+        "POL-05"
+      ],
+      "missed": [
+        "POL-07"
+      ],
+      "extra": [
+        "EU-U-01"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 192.9
+    },
+    {
+      "asset_id": "AI-9015",
+      "tier_ok": false,
+      "expected_tier": "unacceptable",
+      "got_tier": "high",
+      "recall": 0.6666666666666666,
+      "precision": 0.4,
+      "caught": [
+        "POL-02",
+        "POL-09"
+      ],
+      "missed": [
+        "POL-07"
+      ],
+      "extra": [
+        "EU-H-04",
+        "POL-01",
+        "POL-03"
+      ],
+      "audit_complete": true,
+      "status": "assessed",
+      "elapsed_s": 144.4
     }
   ]
 }
