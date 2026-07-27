@@ -36,8 +36,8 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold mt-3">Sign in</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-1">
-            The contract review desk. No signup here: the admin creates every
-            account.
+            The AI governance control tower. No signup here: the admin creates
+            every account.
           </p>
         </div>
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-white font-semibold text-sm px-6 py-2.5 rounded-[7px] active:scale-[0.98] transition disabled:opacity-50"
+          className="bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-[#1c2126] font-semibold text-sm px-6 py-2.5 rounded-[7px] active:scale-[0.98] transition disabled:opacity-50"
         >
           {busy ? "One moment" : "Sign in"}
         </button>

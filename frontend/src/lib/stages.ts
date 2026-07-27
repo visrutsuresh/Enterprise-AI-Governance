@@ -8,8 +8,8 @@ export const STAGES: Record<string, string> = {
 };
 
 export const TIER_COLORS: Record<string, string> = {
-  unacceptable: "#7c2d12",
-  high: "#b91c1c",
-  limited: "#b45309",
-  minimal: "#15803d",
+  unacceptable: "#a63d2a",
+  high: "#c95a4a",
+  limited: "#a0772d",
+  minimal: "#5f9a5c",
 };

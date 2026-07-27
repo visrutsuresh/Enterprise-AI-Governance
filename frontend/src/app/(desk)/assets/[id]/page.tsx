@@ -24,7 +24,7 @@ type AuditView = {
   broken_at: number | null;
 };
 
-const SEV_COLOR: Record<string, string> = { high: "#b91c1c", medium: "#b45309", low: "#15803d" };
+const SEV_COLOR: Record<string, string> = { high: "#c95a4a", medium: "#a0772d", low: "#5f9a5c" };
 
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -94,7 +94,7 @@ export default function AssetDetail() {
         )}
         <span
           className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase ${
-            asset.source === "seed" ? "bg-[var(--line)] text-[var(--ink-soft)]" : "bg-[var(--accent)] text-white"
+            asset.source === "seed" ? "bg-[var(--line)] text-[var(--ink-soft)]" : "bg-[var(--accent)] text-[#1c2126]"
           }`}
         >
           {asset.source}
@@ -107,10 +107,10 @@ export default function AssetDetail() {
       </div>
 
       {state.status === "error" && (
-        <div className="border border-red-300 bg-red-50 rounded-xl p-4 text-[13.5px]">{state.error}</div>
+        <div className="border border-[var(--rust)] bg-[var(--rust-wash)] rounded-xl p-4 text-[13.5px]">{state.error}</div>
       )}
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-white/60 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] grid grid-cols-2 md:grid-cols-4 gap-4">
         {fact("asset id", asset.asset_id)}
         {fact("type", asset.type)}
         {fact("owner", asset.owner)}
@@ -140,7 +140,7 @@ export default function AssetDetail() {
           </div>
         )}
         {findings.map((f) => (
-          <div key={f.finding_id} className="border border-[var(--line)] rounded-xl p-4 bg-white/60 space-y-1.5">
+          <div key={f.finding_id} className="border border-[var(--line)] rounded-xl p-4 bg-[var(--paper)] space-y-1.5">
             <div className="flex items-center gap-3">
               <span
                 className="px-2 py-0.5 rounded-full text-white text-[11px] font-semibold"
@@ -170,7 +170,7 @@ export default function AssetDetail() {
         ))}
       </section>
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-white/60 space-y-3">
+      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
         <div className="flex items-center gap-4">
           <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
             Audit trail
@@ -183,7 +183,7 @@ export default function AssetDetail() {
           {audit && (
             <span
               className={`px-2 py-0.5 rounded text-[12px] font-semibold text-white ${
-                audit.intact ? "bg-[#15803d]" : "bg-[#b91c1c]"
+                audit.intact ? "bg-[#5f9a5c]" : "bg-[#c95a4a]"
               }`}
             >
               {audit.intact ? "chain intact" : `TAMPERED at entry ${audit.broken_at}`}
@@ -197,7 +197,7 @@ export default function AssetDetail() {
                 key={i}
                 className={`text-[12.5px] font-mono px-2 py-1 rounded ${
                   audit.broken_at !== null && i >= (audit.broken_at as number)
-                    ? "bg-red-50 text-red-800"
+                    ? "bg-[var(--rust-wash)] text-[var(--rust)]"
                     : ""
                 }`}
               >

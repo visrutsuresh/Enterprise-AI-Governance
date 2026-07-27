@@ -84,7 +84,7 @@ function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
   if (!m) return null;
   const shown = m.unit ? `${m.value}${m.unit}` : m.value;
   return (
-    <div className="relative border border-[var(--line)] rounded-xl px-5 py-4 bg-white/60">
+    <div className="relative border border-[var(--line)] rounded-xl px-5 py-4 bg-[var(--paper)]">
       {m.sample && (
         <span
           title="labelled sample: no real estate signal for this metric yet, shown as an illustrative placeholder"
@@ -122,7 +122,7 @@ function SourceBadge({ source }: { source: string | null }) {
       className={`px-1.5 py-0.5 rounded text-[10.5px] font-semibold uppercase tracking-wide ${
         seed
           ? "bg-[var(--line)] text-[var(--ink-soft)]"
-          : "bg-[var(--accent)] text-white"
+          : "bg-[var(--accent)] text-[#1c2126]"
       }`}
     >
       {source || "?"}
@@ -224,7 +224,7 @@ export default function Tower() {
   }
 
   const stat = (label: string, value: React.ReactNode) => (
-    <div className="border border-[var(--line)] rounded-xl px-5 py-4 bg-white/60">
+    <div className="border border-[var(--line)] rounded-xl px-5 py-4 bg-[var(--paper)]">
       <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
       <div className="text-[26px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
         {value}
@@ -263,7 +263,7 @@ export default function Tower() {
         </div>
       )}
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-white/60 space-y-3">
+      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-[14px] font-semibold">Live packs:</div>
           {packs && (
@@ -305,14 +305,14 @@ export default function Tower() {
         )}
       </section>
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-white/60 space-y-2">
+      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-2">
         <div className="text-[14px] font-semibold">Register an AI system</div>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
-          className="w-full border border-[var(--line)] rounded-lg p-3 text-[13.5px] bg-white"
+          className="w-full border border-[var(--line)] rounded-lg p-3 text-[13.5px] bg-[var(--parchment)]"
         />
         <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
           {busy === "register" ? "Registering..." : "Register and assess"}
@@ -333,7 +333,7 @@ export default function Tower() {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.asset_id} className="border-b border-[var(--line)] hover:bg-white/70">
+            <tr key={r.asset_id} className="border-b border-[var(--line)] hover:bg-white/5">
               <td className="py-2.5 pr-3">
                 <Link href={`/assets/${r.asset_id}`} className="font-medium hover:text-[var(--accent)]">
                   {r.name || r.asset_id}

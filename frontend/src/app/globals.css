@@ -17,37 +17,29 @@
    ============================================================ */
 
 :root {
-  --parchment: #eae6db; /* the clay: page ground AND panel fill */
-  --paper: #eae6db; /* deliberately identical, see above */
-  --ink: #2a2318; /* main text */
-  --ink-soft: #78705f; /* secondary text */
-  --line: rgba(
-    122,
-    113,
-    95,
-    0.18
-  ); /* hairline separators ONLY, never panel edges */
-  --accent: #395b64; /* ink-teal */
-  --accent-deep: #2a454c;
-  --accent-wash: rgba(57, 91, 100, 0.1);
-  --rust: #8b4a2e; /* severity: serious */
-  --rust-wash: rgba(139, 74, 46, 0.1);
-  --olive: #4a5530; /* good, decided */
-  --olive-wash: rgba(122, 139, 93, 0.18);
-  --amber: #8a6a1b; /* severity: worth a look */
-  --amber-wash: rgba(217, 179, 108, 0.18);
-  --attn-bg: rgba(217, 179, 108, 0.18); /* needs-a-person note */
-  --attn-ink: #8a6a1b;
+  --parchment: #1d2128; /* the ground */
+  --paper: #2a2f38; /* panels float one step lighter */
+  --ink: #e8eaee; /* main text */
+  --ink-soft: #97a0ac; /* secondary text */
+  --line: rgba(255, 255, 255, 0.07); /* hairline separators */
+  --accent: #74bdb6; /* luminous teal */
+  --accent-deep: #9adcd5; /* hover goes BRIGHTER in the dark */
+  --accent-wash: rgba(116, 189, 182, 0.12);
+  --rust: #d4805c; /* severity: serious */
+  --rust-wash: rgba(212, 128, 92, 0.14);
+  --olive: #9db36c; /* good, decided */
+  --olive-wash: rgba(157, 179, 108, 0.16);
+  --amber: #d9ad55; /* severity: worth a look */
+  --amber-wash: rgba(217, 173, 85, 0.14);
+  --attn-bg: rgba(217, 173, 85, 0.14); /* needs-a-person note */
+  --attn-ink: #d9ad55;
 
-  /* the depth system: this IS the skin */
-  --lift:
-    9px 9px 18px rgba(166, 157, 135, 0.55),
-    -9px -9px 18px rgba(255, 255, 255, 0.95);
-  --lift-hi: 12px 12px 22px rgba(166, 157, 135, 0.6), -12px -12px 22px #ffffff;
-  --press:
-    inset 5px 5px 10px rgba(166, 157, 135, 0.5),
-    inset -5px -5px 10px rgba(255, 255, 255, 0.9);
-  --radius: 18px;
+  /* depth is one soft downward shadow now (A3 soft elevation),
+     not the old neumorph light/dark pair */
+  --lift: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --lift-hi: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --press: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+  --radius: 16px;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --background: var(--parchment);
@@ -150,8 +142,8 @@ h3 {
   color: var(--olive);
 }
 .badge.attn {
-  background: #f1e5d0;
-  color: #7a5a18;
+  background: var(--attn-bg);
+  color: var(--attn-ink);
 }
 .badge.err {
   background: var(--rust-wash);
@@ -447,7 +439,7 @@ h3 {
 }
 .act-acc {
   background: var(--accent);
-  color: #fff;
+  color: #1c2126;
 }
 .act-acc:hover {
   background: var(--accent-deep);
@@ -507,7 +499,7 @@ h3 {
 }
 .finish.ready {
   background: var(--accent);
-  color: #fff;
+  color: #1c2126;
 }
 .finish.ready:hover {
   transform: translateY(-1px);
@@ -551,7 +543,7 @@ h3 {
   padding: 0.45rem 0.9rem;
   border-radius: 0.5rem;
   background: var(--accent);
-  color: #fff;
+  color: #1c2126;
   font-size: 13px;
   font-weight: 600;
 }
