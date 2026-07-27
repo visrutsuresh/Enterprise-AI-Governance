@@ -308,3 +308,11 @@ async def deactivate_account(user_id: uuid.UUID, user: User = Depends(require_ad
             raise HTTPException(status_code=400, detail="you cannot deactivate your own account")
         await db.update(target, {"is_active": False})
         return {"id": str(target.id), "deactivated": True}
+
+
+@app.get("/metrics")
+def executive_metrics(user: User = Depends(require_reviewer)):
+    # the executive dashboard: the five PDF metric categories. Every real number
+    # is computed from the estate in sweep._estate_metrics; sample-labelled ones
+    # carry {"sample": true} so the UI badges them instead of implying measurement.
+    return sweep._estate_metrics()

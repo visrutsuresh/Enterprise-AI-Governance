@@ -24,6 +24,84 @@ type Packs = {
   framework_pack: { id: string; name: string; tiers: number };
 };
 
+type Metric = { value: number | string; detail?: string; sample?: boolean; unit?: string };
+type Metrics = Record<string, Record<string, Metric>>;
+
+const METRIC_GROUPS: { key: string; title: string; metrics: { key: string; label: string }[] }[] = [
+  {
+    key: "portfolio",
+    title: "AI Portfolio",
+    metrics: [
+      { key: "total_use_cases", label: "Total AI Use Cases" },
+      { key: "in_production", label: "AI Applications in Production" },
+      { key: "under_review", label: "AI Projects Under Review" },
+      { key: "adoption_rate", label: "AI Adoption Rate" },
+    ],
+  },
+  {
+    key: "risk",
+    title: "Risk",
+    metrics: [
+      { key: "high_risk_systems", label: "High-Risk AI Systems" },
+      { key: "open_issues", label: "Open Governance Issues" },
+      { key: "policy_violations", label: "Policy Violations" },
+      { key: "third_party_risks", label: "Third-Party AI Risks" },
+    ],
+  },
+  {
+    key: "compliance",
+    title: "Compliance",
+    metrics: [
+      { key: "compliance_score", label: "Compliance Score" },
+      { key: "regulatory_readiness", label: "Regulatory Readiness" },
+      { key: "audit_findings", label: "Audit Findings" },
+      { key: "approval_status", label: "Approval Status" },
+    ],
+  },
+  {
+    key: "responsible_ai",
+    title: "Responsible AI",
+    metrics: [
+      { key: "bias_assessment", label: "Bias Assessment Status" },
+      { key: "explainability_coverage", label: "Explainability Coverage" },
+      { key: "human_oversight", label: "Human Oversight Compliance" },
+      { key: "model_transparency", label: "Model Transparency Score" },
+    ],
+  },
+  {
+    key: "operational",
+    title: "Operational",
+    metrics: [
+      { key: "model_performance", label: "Model Performance" },
+      { key: "model_drift_incidents", label: "Model Drift Incidents" },
+      { key: "security_findings", label: "Security Findings" },
+      { key: "sla_compliance", label: "Governance SLA Compliance" },
+    ],
+  },
+];
+
+function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
+  if (!m) return null;
+  const shown = m.unit ? `${m.value}${m.unit}` : m.value;
+  return (
+    <div className="relative border border-[var(--line)] rounded-xl px-5 py-4 bg-white/60">
+      {m.sample && (
+        <span
+          title="labelled sample: no real estate signal for this metric yet, shown as an illustrative placeholder"
+          className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wide bg-[var(--line)] text-[var(--ink-soft)]"
+        >
+          sample
+        </span>
+      )}
+      <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)] pr-12">{label}</div>
+      <div className="text-[26px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        {shown}
+      </div>
+      {m.detail && <div className="text-[11px] text-[var(--ink-soft)] mt-1 leading-snug">{m.detail}</div>}
+    </div>
+  );
+}
+
 function TierChip({ tier }: { tier: string | null }) {
   if (!tier) return <span className="text-[var(--ink-soft)]">-</span>;
   return (
@@ -61,10 +139,12 @@ export default function Tower() {
   const [notice, setNotice] = useState("");
   const [brief, setBrief] = useState("");
   const [report, setReport] = useState("");
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
 
   const refresh = useCallback(() => {
     api("/assets").then(setRows).catch(() => {});
     api("/packs").then(setPacks).catch(() => {});
+    api("/metrics").then(setMetrics).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -162,6 +242,26 @@ export default function Tower() {
         {stat("limited", tiers["limited"] || 0)}
         {stat("minimal", tiers["minimal"] || 0)}
       </div>
+
+      {metrics && (
+        <div className="space-y-5">
+          <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+            Executive dashboard
+          </h2>
+          {METRIC_GROUPS.map((g) => (
+            <section key={g.key} className="space-y-2">
+              <div className="text-[13px] font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
+                {g.title}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {g.metrics.map((m) => (
+                  <MetricTile key={m.key} label={m.label} m={metrics[g.key]?.[m.key]} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       <section className="border border-[var(--line)] rounded-xl p-5 bg-white/60 space-y-3">
         <div className="flex flex-wrap items-center gap-3">

@@ -123,3 +123,97 @@ def run_sweep(limit: int = 10) -> dict:
         "report": report,
         "estate": stats,
     }
+
+
+# --- executive dashboard metrics (the five PDF categories) -------------------
+# Every REAL metric is computed from the live estate right here; each formula is
+# named inline. A metric with NO honest source in the estate is returned with
+# {"sample": True} so the UI badges it and we never pass a made-up number off as
+# measured (the truthfulness rule). Reuses store.list_metrics_rows for one read.
+
+_REVIEW_STATUSES = ("processing", "registered")
+
+
+def _pct(part: int, whole: int) -> int:
+    return round(part / whole * 100) if whole else 0
+
+
+def _estate_metrics() -> dict:
+    rows = store.list_metrics_rows()
+    total = len(rows)
+
+    # portfolio: lifecycle + status counts straight off the label columns
+    production = sum(1 for r in rows if (r["lifecycle"] or "") == "production")
+    under_review = sum(1 for r in rows if (r["status"] or "") in _REVIEW_STATUSES)
+
+    # risk tier + decision tallies
+    high_risk = sum(1 for r in rows if (r["risk_tier"] or "") in ("high", "unacceptable"))
+    compliant = sum(1 for r in rows if r["decision"] == "compliant")
+    flagged = sum(1 for r in rows if r["decision"] == "flagged")
+    assessed = compliant + flagged
+    pending = total - assessed
+
+    # findings, broken down by the inspector that raised them and by status
+    by_inspector: dict = {}
+    total_findings = 0
+    open_findings = 0
+    bias_findings = 0
+    for r in rows:
+        for f in (r["findings"] or []):
+            insp = f.get("inspector", "")
+            total_findings += 1
+            by_inspector[insp] = by_inspector.get(insp, 0) + 1
+            if f.get("status", "open") == "open":
+                open_findings += 1
+            if insp == "responsible_ai":
+                blob = f"{f.get('plain', '')} {f.get('evidence', '')}".lower()
+                if "bias" in blob or "fairness" in blob or "discriminat" in blob:
+                    bias_findings += 1
+
+    policy_violations = by_inspector.get("policy_compliance", 0)
+    third_party = by_inspector.get("security_third_party", 0)
+    drift = by_inspector.get("model_monitoring", 0)
+
+    # human oversight: share of PRODUCTION assets that name a human overseer
+    prod_rows = [r for r in rows if (r["lifecycle"] or "") == "production"]
+    prod_with_oversight = sum(1 for r in prod_rows if (r["human_oversight"] or "").strip())
+
+    def real(value, detail, unit=""):
+        return {"value": value, "detail": detail, "unit": unit}
+
+    def sample(value, detail, unit=""):
+        return {"value": value, "sample": True, "detail": detail, "unit": unit}
+
+    return {
+        "portfolio": {
+            "total_use_cases": real(total, "count of registered AI assets"),
+            "in_production": real(production, "assets with lifecycle = production"),
+            "under_review": real(under_review, "status processing or registered (not yet assessed)"),
+            "adoption_rate": real(_pct(production, total), "production / total assets", "%"),
+        },
+        "risk": {
+            "high_risk_systems": real(high_risk, "assets tiered high or unacceptable"),
+            "open_issues": real(open_findings, "findings with status open across the estate"),
+            "policy_violations": real(policy_violations, "findings from the policy_compliance inspector"),
+            "third_party_risks": real(third_party, "findings from the security_third_party inspector"),
+        },
+        "compliance": {
+            "compliance_score": real(_pct(compliant, assessed), "compliant / assessed assets", "%"),
+            "regulatory_readiness": sample(78, "no regulatory-readiness signal is tracked per asset yet", "%"),
+            "audit_findings": real(total_findings, "total findings on record across all assessments"),
+            "approval_status": real(compliant, f"{compliant} compliant vs {flagged} flagged ({pending} pending decision)"),
+        },
+        "responsible_ai": {
+            "bias_assessment": real(bias_findings, "open responsible_ai findings citing bias or fairness"),
+            "explainability_coverage": sample(64, "explainability metadata is not captured per asset yet", "%"),
+            "human_oversight": real(_pct(prod_with_oversight, len(prod_rows)),
+                                    f"{prod_with_oversight}/{len(prod_rows)} production assets name a human overseer", "%"),
+            "model_transparency": sample(71, "no transparency / model-card score is captured yet"),
+        },
+        "operational": {
+            "model_performance": sample(92, "live model-performance telemetry is not wired into the estate", "%"),
+            "model_drift_incidents": real(drift, "findings from the model_monitoring sweep agent"),
+            "security_findings": real(third_party, "findings from the security_third_party inspector"),
+            "sla_compliance": sample(88, "no SLA timers are recorded in the estate yet", "%"),
+        },
+    }

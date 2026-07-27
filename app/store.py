@@ -135,3 +135,20 @@ def set_stage(asset_id: str, stage: str) -> bool:
     with _connect() as conn:
         cur = conn.execute("UPDATE assets SET stage = %s WHERE asset_id = %s", (stage, asset_id))
         return cur.rowcount > 0
+
+
+def list_metrics_rows() -> list[dict]:
+    # richer rows for the executive dashboard: the label columns plus the
+    # findings array, decision and human_oversight pulled from the JSONB blob.
+    # Heavier than list_all (it opens the assessment), so only the /metrics
+    # endpoint calls it, never the 4s control-tower poll.
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT asset_id, lifecycle, status, risk_tier,
+                   state->'asset'->'assessment'->>'decision' AS decision,
+                   state->'asset'->>'human_oversight' AS human_oversight,
+                   COALESCE(state->'asset'->'assessment'->'findings', '[]'::jsonb) AS findings
+            FROM assets
+        """)
+        return cur.fetchall()
