@@ -6,7 +6,7 @@ findings up into a risk tier, routes flags to a human reviewer, and keeps a
 tamper-evident audit trail for executive and regulatory reporting. Nothing is
 auto-blocked: a flag is a work item for a person, never an automatic shutdown.
 
-Use case #6 of the Ascendion internship build. It reuses the #1 [REDACTED_SQL_PASSWORD_1]-ticket
+Use case #6 of the Ascendion internship build. It reuses the #1 support-ticket
 skeleton and the #4 Papyrus patterns (one private model lane, hash-chain audit,
 Weaviate precedent, fastapi-users auth).
 
@@ -66,7 +66,7 @@ estate brief).
 ### `.env` (copy from `.env.example`)
 
 ```
-DATABASE_URL=postgresql://[REDACTED_SQL_PASSWORD_2]:<password>@127.0.0.1:5435/[REDACTED_SQL_PASSWORD_2]
+DATABASE_URL=postgresql://governance:<password>@127.0.0.1:5435/governance
 AUTH_SECRET=...            # signs the login cookie/JWT; the app refuses to start without it
 PRIVATE_LANE_URL=...       # the Modal endpoint (REQUIRED, read at import time)
 PRIVATE_LANE_TOKEN=...     # shared secret for that endpoint (REQUIRED)
@@ -100,9 +100,9 @@ Seeded dev accounts (rotate before this is reachable by anyone else):
 
 | Email | Password | Role |
 |---|---|---|
-| `[REDACTED_EMAIL_ADDRESS_2]` | `admin-dev-password` | admin |
-| `[REDACTED_EMAIL_ADDRESS_3]` | `reviewer-dev-password` | reviewer |
-| `[REDACTED_EMAIL_ADDRESS_4]` | `reviewer-dev-password` | reviewer |
+| `admin@governance.dev` | `admin-dev-password` | admin |
+| `lucy@governance.dev` | `reviewer-dev-password` | reviewer |
+| `omar@governance.dev` | `reviewer-dev-password` | reviewer |
 
 There is **no open signup**. The admin creates every account from the People page.
 
@@ -164,7 +164,7 @@ loop's duplicate-call blocking (`test_react`), state shapes, provenance
 ## Bench
 
 `bench.py` scores the pipeline against labelled assets, reporting tier accuracy
-and finding quality. Results land in `bench_[REDACTED_SQL_PASSWORD_2].json`.
+and finding quality. Results land in `bench_governance.json`.
 
 ```bash
 uv run python bench.py --only AI-9001    # ONE asset (real GPU time: always start here)
@@ -181,7 +181,7 @@ uv run python bench.py                   # the full set (not cheap)
 | Backend API | http://localhost:8000 |
 | Swagger docs | http://localhost:8000/docs |
 | Weaviate | http://localhost:8082 (gRPC 50053) |
-| Postgres | localhost:5435 (user `[REDACTED_SQL_PASSWORD_2]`, db `[REDACTED_SQL_PASSWORD_2]`) |
+| Postgres | localhost:5435 (user `governance`, db `governance`) |
 
 ---
 
@@ -190,12 +190,12 @@ uv run python bench.py                   # the full set (not cheap)
 - **App won't start, `KeyError: 'DATABASE_URL'` / `'PRIVATE_LANE_URL'` / `RuntimeError: AUTH_SECRET missing`.**
   A required `.env` var is blank. `DATABASE_URL`, `AUTH_SECRET`, `PRIVATE_LANE_URL`,
   and `PRIVATE_LANE_TOKEN` are all read at import time.
-- **`role "[REDACTED_SQL_PASSWORD_2]" does not exist` on startup.** The password in `DATABASE_URL`
+- **`role "governance" does not exist` on startup.** The password in `DATABASE_URL`
   does not match `POSTGRES_PASSWORD` in `docker-compose.yml`, or a stale data volume
   was initialised with a different password. Postgres only applies those credentials
   on a first-time init against an empty volume. Fix: make the two agree, then, only if
   the volume was already initialised with the old password, wipe just this project's
-  volume and re-init: `docker compose down && docker volume rm enterprise-ai-[REDACTED_SQL_PASSWORD_2]_pgdata && docker compose up -d`.
+  volume and re-init: `docker compose down && docker volume rm enterprise-ai-governance_pgdata && docker compose up -d`.
 - **Weaviate gRPC times out, precedent search returns nothing.** An `HTTPS_PROXY` is
   routing localhost gRPC through the proxy. See the proxy section above (port 50053).
 - **`precedent_search` returns an empty list on a fresh machine.** Run
@@ -214,7 +214,7 @@ uv run python bench.py                   # the full set (not cheap)
 
 ```
 api.py                FastAPI backend (register, estate, audit, packs, sweep, flags, brief, users)
-bench.py              scores the pipeline, writes bench_[REDACTED_SQL_PASSWORD_2].json
+bench.py              scores the pipeline, writes bench_governance.json
 seed_users.py         one admin + two reviewers
 seed_estate.py        loads the authored estate (data/estate/assets.json)
 seed_precedent.py     starter precedent cabinet
