@@ -16,7 +16,7 @@ export default function LoginPage() {
     setError("");
     try {
       await login(email, password);
-      router.push("/docket");
+      router.push("/tower");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -32,7 +32,7 @@ export default function LoginPage() {
             className="text-[24px] font-extrabold"
             style={{ fontFamily: "var(--font-cabinet)" }}
           >
-            PAPYRUS<span className="text-[var(--accent)]">.</span>
+            GOVERNANCE<span className="text-[var(--accent)]">.</span>
           </div>
           <h1 className="text-2xl font-bold mt-3">Sign in</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-1">
