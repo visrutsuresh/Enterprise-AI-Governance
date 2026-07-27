@@ -119,10 +119,10 @@ uv run uvicorn api:app --reload          # API on http://localhost:8000
 **Terminal 2, frontend**
 ```bash
 cd frontend
-npm run dev                              # UI on http://localhost:3001
+npm run dev                              # UI on http://localhost:3000
 ```
 
-Open http://localhost:3001, sign in as the admin, and paste a one-paragraph
+Open http://localhost:3000, sign in as the admin, and paste a one-paragraph
 description of an AI system on the register form. The row narrates its stage
 while the pipeline runs (cataloguing, choosing inspectors, inspecting, rolling
 up), then flips to compliant or flagged, with plain-English findings pinned to
@@ -177,7 +177,7 @@ uv run python bench.py                   # the full set (not cheap)
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:3001 |
+| Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
 | Swagger docs | http://localhost:8000/docs |
 | Weaviate | http://localhost:8082 (gRPC 50053) |
@@ -240,5 +240,5 @@ data/
   policy_packs/       company policy rulebooks (acme, ...)
   framework_packs/    regulation packs (eu_ai_act, ...)
 tests/                pytest suite (no model calls)
-frontend/             Next.js reviewer UI (App Router, Tailwind, TypeScript, port 3001)
+frontend/             Next.js reviewer UI (App Router, Tailwind, TypeScript, port 3000)
 ```
