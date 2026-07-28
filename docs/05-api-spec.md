@@ -61,6 +61,11 @@ The re-score returns what changed: findings before and after, and how many asset
 | 409 | The flag has already been decided; the first verdict stands |
 
 Either verdict appends an entry to that asset's hash chain naming the finding, the verdict, the reviewer and the reason, so the human decision sits inside the tamper-evident record rather than beside it.
+
+**The sweep and the estate views:**
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
 | POST | `/sweep/run` | admin | Run the estate sweep over a slice: monitoring, regulatory intelligence, audit reporting |
 | GET | `/brief` | reviewer or admin | The executive brief over the estate |
 | GET | `/metrics` | reviewer or admin | Estate metrics for the dashboard |
@@ -71,6 +76,7 @@ Either verdict appends an entry to that asset's hash chain naming the finding, t
 |---|---|---|
 | GET | `/users` | admin |
 | POST | `/users` | admin, creates a reviewer or administrator |
+| PATCH | `/users/{id}` | admin, edits an existing account: its email, its password, or its role. 422 if the role is neither `reviewer` nor `admin`, 404 if there is no such account, 409 if the new email is already taken |
 | DELETE | `/users/{id}` | admin, deactivates |
 
 ## 7. Status codes used
