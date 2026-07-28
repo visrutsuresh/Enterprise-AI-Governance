@@ -25,6 +25,7 @@ A control tower. It keeps a central inventory of every AI asset in the company, 
 | FR-7 | Roll findings into a risk level and score deterministically, never by a model | MET |
 | FR-8 | Every finding must carry the control it pins to, a severity, a plain-English line, the evidence, and a remediation | MET, enforced by validation |
 | FR-9 | Route a flag to a human reviewer, with no automatic blocking | MET |
+| FR-9a | Record what the reviewer concluded: approve a finding as real, or override it with a mandatory reason, and put that verdict in the audit chain | MET |
 | FR-10 | Swap the active rulebook and re-score the estate against the new one | MET, deterministic re-scoring, no model calls |
 | FR-11 | Sweep the estate on demand: monitoring, regulatory intelligence, and audit reporting | MET |
 | FR-12 | Produce an executive brief over the estate | MET |

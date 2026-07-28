@@ -28,10 +28,9 @@ from app.users import (
     session_maker,
 )
 
-store.init_db()  # make sure the assets table exists when the API boots
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    store.init_db()  # tables exist when the API BOOTS, not when this module imports, so tests can drive it without a database
     await create_user_table()
     try:
         precedent.ensure_collection()  # label the Weaviate drawer on a fresh machine
@@ -239,6 +238,54 @@ def route_flag(finding_id: str, user: User = Depends(require_reviewer)):
                                  [f"approval_workflow: {finding_id} routed to {routing['team']} ({routing['why']})"])
     store.save(state)
     return {"finding_id": finding_id, **routing}
+
+
+FLAG_VERDICTS = ("approved", "overridden")
+
+
+class FlagDecisionIn(BaseModel):
+    verdict: str  # approved = the finding is real | overridden = dismissed, and why
+    reason: str = ""
+
+
+@app.post("/flags/{finding_id}/decision")
+def decide_flag(finding_id: str, payload: FlagDecisionIn, user: User = Depends(require_reviewer)):
+    # Routing says who should look. This says what they CONCLUDED, which is the half
+    # an auditor actually asks about: not "was it flagged" but "who dismissed it, and why".
+    if payload.verdict not in FLAG_VERDICTS:
+        raise HTTPException(status_code=422, detail="verdict must be approved or overridden")
+    reason = payload.reason.strip()
+    if payload.verdict == "overridden" and not reason:
+        raise HTTPException(status_code=422, detail="an override needs a reason: say why this finding does not apply")
+    state, _assessment, finding = _find_finding(finding_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no asset for that finding id")
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found on its asset")
+    if finding.get("review"):
+        raise HTTPException(status_code=409, detail="this flag has already been decided")
+
+    finding["review"] = {
+        "verdict": payload.verdict,
+        "reason": reason,
+        "by": user.email,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    # an override closes the finding; an approval CONFIRMS it, so the remediation work stays open
+    if payload.verdict == "overridden":
+        finding["status"] = "dismissed"
+    state["audit"] = audit.chain(
+        state.get("audit") or [],
+        [f"reviewer_decision: {finding_id} {payload.verdict} by {user.email} ({reason or 'confirmed as raised'})"],
+    )
+    store.save(state)
+    return {
+        "finding_id": finding_id,
+        "verdict": payload.verdict,
+        "status": finding["status"],
+        "reason": reason,
+        "by": user.email,
+    }
 
 
 @app.get("/brief")

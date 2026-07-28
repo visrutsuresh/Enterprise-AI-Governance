@@ -39,9 +39,13 @@ Produced by the inventory agent from a paragraph of prose: name, type, owner, li
 | `plain` | What it means in everyday words |
 | `evidence` | The fact in the record that triggered it |
 | `remediation` | What to do about it |
-| `status` | Open, or routed to a reviewer |
+| `status` | `open` while the work stands, `dismissed` once a reviewer overrides it |
+| `routed_to` | The team it was routed to, if it has been |
+| `review` | The reviewer's verdict, once given: verdict, reason, who, and when |
 
 A finding missing any required field is discarded before it reaches a reviewer, and the drop is counted.
+
+**Why an approval leaves the status alone.** Approving a finding confirms it is real, so the remediation work still exists and it must keep counting as open. Only an override closes it. That keeps the estate's open-finding counts meaning "work outstanding" rather than "not yet looked at".
 
 ## 4. Packs, as data
 

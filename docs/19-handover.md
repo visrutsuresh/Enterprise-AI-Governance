@@ -37,8 +37,7 @@ Order: containers up, seed accounts, seed the estate, seed precedent, start the 
 ## 5. Open work, in the order worth doing
 
 1. **Tier accuracy**, currently 73 percent with at least one asset under-rated. The highest-stakes judgement the system makes.
-2. **Approve and override annotations on flags**, so a reviewer's decision on a flag is recorded rather than implicit.
-3. **An endpoint-level test suite**, matching the sibling contract-review system's.
+2. **Endpoint-level tests for the rest of the API.** The flag-decision endpoint has eight; registration, packs, sweep and the brief have none. This is now possible because table creation moved out of module import into the startup hook. (Approve and override annotations on flags were the previous entry here and are done.)
 4. **A test asserting asset descriptions can never reach a third party.**
 5. **Signed or version-controlled packs**, with a record of who activated what and when. The rulebook is the trust anchor and today it is a writable file.
 6. **Per-team access boundaries** on the estate.

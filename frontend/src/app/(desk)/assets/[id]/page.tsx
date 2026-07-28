@@ -15,6 +15,7 @@ type Finding = {
   remediation: string;
   status: string;
   routed_to?: string;
+  review?: { verdict: string; reason: string; by: string; at: string };
 };
 
 type AuditView = {
@@ -32,6 +33,8 @@ export default function AssetDetail() {
   const [audit, setAudit] = useState<AuditView | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState("");
+  const [overriding, setOverriding] = useState(""); // finding id whose override reason is being typed
+  const [reason, setReason] = useState("");
 
   const refresh = useCallback(() => {
     api(`/assets/${id}`).then(setState).catch(() => {});
@@ -52,6 +55,24 @@ export default function AssetDetail() {
     setBusy(finding_id);
     try {
       await api(`/flags/${finding_id}/route`, { method: "POST" });
+      refresh();
+      if (showAudit) loadAudit();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // the reviewer's verdict on a flag. an override must carry a reason, which is
+  // the whole point: a dismissal with no reason is what an auditor objects to.
+  async function decide(finding_id: string, verdict: "approved" | "overridden") {
+    setBusy(finding_id);
+    try {
+      await api(`/flags/${finding_id}/decision`, {
+        method: "POST",
+        body: JSON.stringify({ verdict, reason }),
+      });
+      setOverriding("");
+      setReason("");
       refresh();
       if (showAudit) loadAudit();
     } finally {
@@ -155,7 +176,7 @@ export default function AssetDetail() {
             <div className="text-[14.5px] font-medium">{f.plain}</div>
             <div className="text-[12.5px] text-[var(--ink-soft)]">Evidence: {f.evidence}</div>
             <div className="text-[12.5px]">Fix: {f.remediation}</div>
-            <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-3 pt-1 flex-wrap">
               {f.routed_to ? (
                 <span className="text-[12.5px]">
                   Routed to <b>{f.routed_to}</b>
@@ -165,7 +186,58 @@ export default function AssetDetail() {
                   {busy === f.finding_id ? "Routing..." : "Route to a team"}
                 </button>
               )}
+
+              {f.review ? (
+                <span className="text-[12.5px]">
+                  <b>{f.review.verdict === "approved" ? "Confirmed" : "Overridden"}</b> by {f.review.by}
+                  {f.review.reason && <span className="text-[var(--ink-soft)]"> &mdash; {f.review.reason}</span>}
+                </span>
+              ) : (
+                <>
+                  <button className="btn" disabled={busy !== ""} onClick={() => decide(f.finding_id, "approved")}>
+                    {busy === f.finding_id ? "Saving..." : "Approve"}
+                  </button>
+                  <button
+                    className="btn"
+                    disabled={busy !== ""}
+                    onClick={() => {
+                      setOverriding(f.finding_id);
+                      setReason("");
+                    }}
+                  >
+                    Override
+                  </button>
+                </>
+              )}
             </div>
+
+            {overriding === f.finding_id && !f.review && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  autoFocus
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Why does this not apply? (recorded in the audit trail)"
+                  className="flex-1 border border-[var(--line)] rounded px-2 py-1 text-[13px] bg-transparent"
+                />
+                <button
+                  className="btn"
+                  disabled={!reason.trim() || busy !== ""}
+                  onClick={() => decide(f.finding_id, "overridden")}
+                >
+                  Save override
+                </button>
+                <button
+                  className="text-[12.5px] underline underline-offset-4 text-[var(--ink-soft)]"
+                  onClick={() => {
+                    setOverriding("");
+                    setReason("");
+                  }}
+                >
+                  cancel
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </section>

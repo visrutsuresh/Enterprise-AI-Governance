@@ -44,6 +44,23 @@ The re-score returns what changed: findings before and after, and how many asset
 | Method | Path | Who | Notes |
 |---|---|---|---|
 | POST | `/flags/{finding_id}/route` | reviewer or admin | Route a flag to a person. **Never blocks the asset** |
+| POST | `/flags/{finding_id}/decision` | reviewer or admin | Record what the reviewer concluded: `{verdict, reason?}` where verdict is `approved` or `overridden` |
+
+**The decision endpoint** is the other half of routing. Routing says who should look; this says what they found.
+
+| Verdict | Effect |
+|---|---|
+| `approved` | The finding is confirmed real. Its status stays `open`, because the remediation work still has to happen |
+| `overridden` | The finding is dismissed. Its status becomes `dismissed` and it drops out of the estate's open-finding counts |
+
+| Code | When |
+|---|---|
+| 422 | The verdict is neither `approved` nor `overridden` |
+| 422 | An override was sent with no reason. **A dismissal without a reason is exactly what an auditor objects to, so it is refused** |
+| 404 | No asset for that finding id, or the finding is not on its asset |
+| 409 | The flag has already been decided; the first verdict stands |
+
+Either verdict appends an entry to that asset's hash chain naming the finding, the verdict, the reviewer and the reason, so the human decision sits inside the tamper-evident record rather than beside it.
 | POST | `/sweep/run` | admin | Run the estate sweep over a slice: monitoring, regulatory intelligence, audit reporting |
 | GET | `/brief` | reviewer or admin | The executive brief over the estate |
 | GET | `/metrics` | reviewer or admin | Estate metrics for the dashboard |

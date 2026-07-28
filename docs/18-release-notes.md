@@ -2,6 +2,13 @@
 
 **Version 1, 2026-07-28.** No version tags; 18 commits, from 2026-07-23 to 2026-07-27. The system was built code-complete in about a day and hardened over the following three.
 
+## 2026-07-28, the reviewer's verdict
+
+- **Approve and override on flags.** Routing already said who should look at a flag; nothing recorded what they concluded, so a flag stayed open forever and the reviewer's judgement left no trace. `POST /flags/{id}/decision` records it: approve confirms the finding and leaves the remediation work open, override dismisses it and **requires a reason**, because a dismissal with no reason is exactly what an auditor objects to. Either verdict appends to the asset's hash chain, so the human decision sits inside the tamper-evident record rather than beside it. A flag can only be decided once.
+- This matters at the measured flag precision of 46 percent: a reviewer will dismiss roughly half of what the agents raise, and until now there was nowhere to say why.
+- The control tower shows the two buttons on each finding, with an inline reason box for an override and the recorded verdict afterwards.
+- **Enabling fix:** the module created its database tables at import, so it could not be imported without a live Postgres, which is why this repository had no endpoint tests at all. Table creation moved into the startup hook, the same fix the ticket-triage system needed. Eight endpoint tests came with it, taking the suite from 26 to 34.
+
 ## 2026-07-27, the tower gets its own face
 
 - **Dark soft-elevation reskin.** The interface was previously indistinguishable from the sibling contract-review system, because both forked the same styling. The reskin was done by redefining a small set of design variables rather than by touching component classes, so no component changed.
