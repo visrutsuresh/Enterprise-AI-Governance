@@ -25,6 +25,8 @@
 
 A finding carries a finding id, the inspector, the **control id** it pins to (a rule from the policy pack or a control from the framework pack), a severity, a plain-English line, the evidence that triggered it, a remediation, and a status. Anything missing a required field is discarded before display and counted.
 
+Since 2026-07-28 a finding also carries its remediation state: an `owner`, a `due_at` date, an `evidence_files` list, and a five-word `status` vocabulary (`open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`). These live inside the same JSONB shape, so no migration ran and findings written earlier read as unassigned and open. `store.list_findings()` flattens findings across the estate the same way the open-finding counter always has, and `PATCH /flags/{finding_id}` does the read-modify-write; both follow the existing single-table pattern rather than normalising into a findings table (a five-hour job instead of twelve, at the accepted cost of last-write-wins on concurrent edits to one asset).
+
 Pinning every finding to a control id is what makes the audit trail defensible: a reviewer can ask which rule this came from and get an answer.
 
 ## 3. Packs as data

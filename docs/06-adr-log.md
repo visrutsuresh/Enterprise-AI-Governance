@@ -91,3 +91,21 @@
 **Context.** This was the third system in the family, with days rather than weeks available.
 **Decision.** Fork the contract-review system, which had already forked the ticket system, and adapt.
 **Consequences.** The system was code-complete in a day. The cost is a third copy of several modules, and two bugs have already had to be fixed twice. The plan to replace copies with a shared package is recorded in the planning repository.
+
+---
+
+## ADR-012. Remediation state lives inside the existing JSONB, not a findings table
+
+**Context.** The remediation workflow (2026-07-28) needed owner, due date and status on every finding. The estate has one table, `assets`, with findings inside a JSONB array, and the open-finding counter and the decision endpoint already work directly on that array.
+**Options.** Normalise findings into their own table; extend the JSONB shape in place.
+**Decision.** Extend the JSONB shape. Four fields were added to the finding; existing findings read as unassigned and open, so no migration and no backfill ran.
+**Consequences.** A five-hour backend job instead of twelve, and every existing reader kept working. The accepted cost: a finding update is a read-modify-write of one asset's JSON document, so two concurrent edits to findings on the same asset can clobber each other. Fine for two reviewers on a demo estate; documented rather than solved.
+
+---
+
+## ADR-013. The remediation screen is a status board, and dismissal is not a column
+
+**Context.** Remediation work needed to be visible as work. The reference product class (VerifyWise and its peers) organises this as a board.
+**Options.** Dense rows with inline status edits; a four-column status board with drag and drop; both.
+**Decision.** A board with real drag and drop (dnd-kit) for the filtered views, chosen by the CEO from browser mockups, with the ALL view rendering as dense rows because 200 findings do not fit in columns. Two guards are requirements: `dismissed` is not a column and cannot be reached by dragging (dismissal stays on the override path, which requires a written reason), and a dismissed finding cannot be revived by a drag (409).
+**Consequences.** The workflow reads as a product rather than an admin table, at roughly four extra hours of build cost. Drag listeners sit on a grip rather than the whole card, so the date picker inside a card does not start a drag. Every move writes an audit entry, keeping the tamper-evident chain the single story.

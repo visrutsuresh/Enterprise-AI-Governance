@@ -20,10 +20,11 @@ Use `python -m pytest`, not `pytest` alone, or collection cannot find the applic
 
 ## 3. Coverage
 
-**34 tests, green in about a second, no model calls.**
+**53 tests, green in about a second, no model calls.**
 
 | File | Tests | Covers |
 |---|---|---|
+| `test_remediation.py` | 19 | The remediation queue and board, driven through the real endpoints with the database swapped for a dict: the status vocabulary is enforced (a word outside the four board columns is refused with 422, and the error points at the override path), an unknown finding 404s, each filter (`mine`, `unassigned`, `overdue`, `team`, `status`) returns only matching findings, owner and due date set and clear correctly, a malformed date is refused, every change grows that asset's hash chain by exactly one and leaves the verifier intact, a dismissed finding refuses to be moved with 409, and an approved finding is still `open` and therefore still on the board |
 | `test_flag_decision.py` | 8 | The reviewer's verdict on a flag, driven through the real endpoint with the database swapped for a dict: approve confirms and leaves the work open, override dismisses and keeps the reason, an override with no reason is refused, an unknown verdict is refused, a flag cannot be decided twice, unknown finding and unknown asset both 404, the verdict joins the hash chain and the chain still verifies, and the decision is actually persisted |
 | `test_audit.py` | 5 | The hash chain and its verifier |
 | `test_bench_scoring.py` | 5 | The benchmark's own scoring, so the numbers it reports are trustworthy |
@@ -54,7 +55,8 @@ One asset was registered through the tower on a warm lane and assessed end to en
 
 | Gap | Why it matters |
 |---|---|
-| Thin endpoint-level coverage | Only the flag-decision endpoint is covered by tests. Registration, packs, sweep and the brief are still verified by hand and by live probes. **This became possible on 2026-07-28**: the module used to create its database tables at import, so it could not be imported without Postgres, which is why no endpoint tests existed. Table creation moved into the startup hook |
+| Thin endpoint-level coverage | The flag-decision and remediation endpoints are covered by tests. Registration, packs, sweep and the brief are still verified by hand and by live probes. **This became possible on 2026-07-28**: the module used to create its database tables at import, so it could not be imported without Postgres, which is why no endpoint tests existed. Table creation moved into the startup hook |
+| No frontend test of the drag interaction | The board's drag and drop is verified by hand; both the board and the ALL rows view read the same endpoint, so a card can always be moved without dragging if it fails live |
 | No test asserting asset text never leaves for a third party | The claim rests on the absence of a cloud client |
 | No frontend tests | The tower is verified by hand |
 | Tier accuracy is only measurable through the paid benchmark | There is no free proxy for it |

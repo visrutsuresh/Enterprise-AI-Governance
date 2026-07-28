@@ -39,9 +39,14 @@ Produced by the inventory agent from a paragraph of prose: name, type, owner, li
 | `plain` | What it means in everyday words |
 | `evidence` | The fact in the record that triggered it |
 | `remediation` | What to do about it |
-| `status` | `open` while the work stands, `dismissed` once a reviewer overrides it |
+| `status` | One of `open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`. Only an override can set `dismissed`, and a dismissed finding cannot be moved again |
+| `owner` | Email of the person remediating it, or null for unassigned |
+| `due_at` | ISO date the remediation is due, or null |
+| `evidence_files` | List of attached proof references, empty until evidence upload ships |
 | `routed_to` | The team it was routed to, if it has been |
 | `review` | The reviewer's verdict, once given: verdict, reason, who, and when |
+
+The four remediation fields (`status` beyond its original two words, `owner`, `due_at`, `evidence_files`) were added inside the existing JSONB shape on 2026-07-28, so **no migration ran**: a finding written before then simply reads as unassigned and `open`, which is exactly what it means. One consequence is accepted and documented rather than solved: a finding update is a read-modify-write of one asset's JSON document, so two people editing findings on the same asset at the same moment can clobber each other. Acceptable for two reviewers on a demo estate; row locking would cost more than it buys this week.
 
 A finding missing any required field is discarded before it reaches a reviewer, and the drop is counted.
 
@@ -60,6 +65,8 @@ Two policy packs and one framework pack ship with the system, which is what make
 ## 5. The seeded estate
 
 185 synthetic assets, plus a 15-asset labelled answer key with **zero overlap** with the rest, used for the benchmark. Seeded assets carry deliberately **empty audit chains**, so that any chain you see was produced by a real run rather than by the seeder.
+
+Since 2026-07-28 the seeder also walks findings through a fixed index-based cycle of owners, due dates and statuses, so the remediation board opens populated rather than empty (at full scale roughly: 120 open, 79 in progress, 39 awaiting evidence, 39 closed, 79 unassigned, 39 overdue). The cycle is deterministic, so re-seeding is reproducible; it adds no audit entries, so the empty-chain rule above still holds; and it never overwrites a dismissed finding.
 
 ## 6. Weaviate, collection for precedent
 

@@ -10,6 +10,8 @@ uv run uvicorn api:app --reload         # API on :8000
 cd frontend && npm run dev              # control tower on :3000
 ```
 
+**One app at a time.** All three sibling systems serve their API on :8000 and their front end on :3000, and every front end hardcodes `http://localhost:8000`. Stop this app before starting a sibling, or the tower will silently talk to the wrong API. The database ports are distinct, so the containers can all stay up.
+
 Behind a TLS-intercepting proxy, set the exclusions in the same shell as the backend and any seed script:
 
 ```bash

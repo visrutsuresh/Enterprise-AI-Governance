@@ -16,6 +16,7 @@
 | FR-8 findings complete and control-referenced | MET | `valid_finding()`, `_stamp` in `app/agents.py` | `test_fanin.py`, `test_state.py` |
 | FR-9 route a flag, never auto-block | MET | `POST /flags/{id}/route`; no blocking endpoint exists | Proved by absence: there is no such code path |
 | FR-9a record the reviewer's verdict, with a reason for any dismissal | MET | `POST /flags/{id}/decision` in `api.py`; the verdict joins the asset's hash chain | `test_flag_decision.py` (8 tests) plus a live probe against the real database |
+| FR-9b remediation as tracked work: owner, due date, status, board | MET | `GET /remediation` and `PATCH /flags/{id}` in `api.py`, `store.list_findings()`, the `/remediation` board with dnd-kit | `test_remediation.py` (19 tests): vocabulary enforced, filters exact, every change audit-chained, dismissed findings immovable, approved findings still open |
 | FR-10 swap the rulebook and re-score | MET | `POST /packs/activate`, `rescore_policy()` in `app/sweep.py` | `test_config_swap.py`; measured 194 findings across 111 assets to 147 across 114, 86 re-scored, chains intact |
 | FR-11 estate sweep | MET | `run_sweep()` in `app/sweep.py`, three sweep agents | Exercised live |
 | FR-12 executive brief | MET | `GET /brief` | Exercised live |
@@ -37,6 +38,6 @@
 
 ## Coverage summary
 
-34 automated tests, no model calls, covering the audit chain, the fan-in reducer including the tier casing fix, validation, the reasoning loop, provenance (seeded against live), the pack swap, the benchmark's own scoring, and the flag-decision endpoint.
+53 automated tests, no model calls, covering the audit chain, the fan-in reducer including the tier casing fix, validation, the reasoning loop, provenance (seeded against live), the pack swap, the benchmark's own scoring, the flag-decision endpoint, and the remediation queue and board endpoints.
 
-The gaps, stated plainly: endpoint coverage is **thin**, since only the flag-decision endpoint is exercised by tests (registration, packs, sweep and the brief are verified by hand and by live probes), and there is **no test asserting that asset descriptions can never reach a third party**, which currently rests on the absence of any cloud client in the codebase.
+The gaps, stated plainly: endpoint coverage is still **partial**, since only the flag-decision and remediation endpoints are exercised by tests (registration, packs, sweep and the brief are verified by hand and by live probes), and there is **no test asserting that asset descriptions can never reach a third party**, which currently rests on the absence of any cloud client in the codebase.

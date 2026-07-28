@@ -4,7 +4,7 @@
 
 ## 1. Get it running
 
-Repository `README.md` for installation, [08-runbook.md](08-runbook.md) for daily operation. Docker, `uv`, Node, and an environment file. Note the database port is **5435**, not the sibling systems' ports, so all three stacks can run at once.
+Repository `README.md` for installation, [08-runbook.md](08-runbook.md) for daily operation. Docker, `uv`, Node, and an environment file. Note the database port is **5435**, not the sibling systems' ports, so all three database stacks can run at once. The applications themselves cannot: **all three systems run their API on :8000 and their front end on :3000, and every front end hardcodes `http://localhost:8000`, so run one app at a time** and stop it before demonstrating a sibling.
 
 Order: containers up, seed accounts, seed the estate, seed precedent, start the API, start the tower, sign in.
 
@@ -37,7 +37,8 @@ Order: containers up, seed accounts, seed the estate, seed precedent, start the 
 ## 5. Open work, in the order worth doing
 
 1. **Tier accuracy**, currently 73 percent with at least one asset under-rated. The highest-stakes judgement the system makes.
-2. **Endpoint-level tests for the rest of the API.** The flag-decision endpoint has eight; registration, packs, sweep and the brief have none. This is now possible because table creation moved out of module import into the startup hook. (Approve and override annotations on flags were the previous entry here and are done.)
+2. **Endpoint-level tests for the rest of the API.** The flag-decision endpoint has eight and the remediation endpoints nineteen; registration, packs, sweep and the brief have none. This is possible because table creation moved out of module import into the startup hook.
+3. **Evidence file upload.** `evidence_files` exists on every finding and the board shows a count, but there is no upload endpoint yet; #4's `file_bytes BYTEA` pattern is the intended shape.
 4. **A test asserting asset descriptions can never reach a third party.**
 5. **Signed or version-controlled packs**, with a record of who activated what and when. The rulebook is the trust anchor and today it is a writable file.
 6. **Per-team access boundaries** on the estate.

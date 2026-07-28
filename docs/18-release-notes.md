@@ -2,6 +2,14 @@
 
 **Version 1, 2026-07-28.** No version tags; 18 commits, from 2026-07-23 to 2026-07-27. The system was built code-complete in about a day and hardened over the following three.
 
+## 2026-07-28 later, remediation becomes somebody's job
+
+- **The remediation board.** A finding now carries an owner, a due date and a status (`open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`), stored inside the existing JSONB shape so no migration ran. A new `/remediation` screen shows the work as a four-column board with real drag and drop, filterable to mine, my team, unassigned or overdue, and the ALL view renders as dense rows because two hundred findings do not fit in columns.
+- **Every change is in the chain.** Setting an owner, moving a card, changing a due date: each appends an entry to that asset's tamper-evident hash chain. Remediation state cannot change without a trace.
+- **Dismissal stays a judgement.** `dismissed` is not a board column and cannot be reached by dragging; that path stays on the override verdict, which requires a written reason. A dismissed finding refuses to be revived by a drag (409). And an approved finding stays `open`, because approval is the start of remediation, not the end; the board is where approved findings land.
+- The seeder now walks findings through a deterministic cycle of owners, due dates and statuses, so the board opens populated; it still writes no audit entries and never overwrites a dismissed finding.
+- Nineteen endpoint tests came with it, taking the suite from 34 to 53. Two bugs were fixed on the way: the user seeder ran at import (so merely importing it needed a live database), and the demo script still named the abandoned side-by-side ports.
+
 ## 2026-07-28, the reviewer's verdict
 
 - **Approve and override on flags.** Routing already said who should look at a flag; nothing recorded what they concluded, so a flag stayed open forever and the reviewer's judgement left no trace. `POST /flags/{id}/decision` records it: approve confirms the finding and leaves the remediation work open, override dismisses it and **requires a reason**, because a dismissal with no reason is exactly what an auditor objects to. Either verdict appends to the asset's hash chain, so the human decision sits inside the tamper-evident record rather than beside it. A flag can only be decided once.
@@ -51,4 +59,6 @@
 - Flag precision is 46 percent against a key that was never meant to be exhaustive.
 - A pack swap re-scores policy findings but not regulatory tiers, which need the model.
 - The rulebook is a writable file with nothing signing or versioning it at runtime.
-- There is no endpoint-level test suite here as there is in the sibling system.
+- Endpoint tests cover the flag-decision and remediation routes; registration, packs, sweep and the brief are still verified by hand.
+- A finding update is a read-modify-write of one asset's JSON document, so concurrent edits to the same asset can clobber each other. Accepted for a two-reviewer demo estate.
+- Evidence file upload (`evidence_files`) is a declared field with no upload endpoint yet.

@@ -40,6 +40,14 @@ The asset ends up either **compliant** or **flagged**. Flagged means there is wo
 
 Route a flag to whoever should deal with it. That is the whole enforcement model: a work item for a human being.
 
+On each finding you can also record what you concluded: **approve** confirms it is real (it stays open, because the fixing still has to happen), **override** dismisses it and requires a written reason. A flag can only be decided once.
+
+## 5a. The remediation board
+
+The remediation screen shows every finding as a card on a four-column board: open, in progress, awaiting evidence, closed. Drag a card to move it, set an owner and a due date on the card, and filter to MINE, MY TEAM, UNASSIGNED or OVERDUE with the chips. The ALL view shows the whole estate as rows instead, which is the fallback if dragging ever misbehaves in a demo.
+
+Two things the board will refuse, on purpose: you cannot drag a card to dismissed (dismissal is an override and needs a written reason), and a dismissed finding cannot be dragged back to life. Every move you make is written into that asset's audit chain.
+
 ## 6. Swapping the rulebook
 
 This is the feature worth understanding. The rules are data, not code. Activating a different policy pack re-scores every asset in the estate against the new rules **immediately and at no cost**, because rule applicability is decided by plain matching rather than by the model.

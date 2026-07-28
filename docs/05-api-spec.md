@@ -62,6 +62,33 @@ The re-score returns what changed: findings before and after, and how many asset
 
 Either verdict appends an entry to that asset's hash chain naming the finding, the verdict, the reviewer and the reason, so the human decision sits inside the tamper-evident record rather than beside it.
 
+## 5a. Remediation
+
+The remediation queue is the work-tracking half of governance: every confirmed finding is somebody's job, with an owner, a deadline and a status.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/remediation` | reviewer or admin | Flattens findings across the whole estate, each with its asset context (asset id, name, tier, routed team). Returns the rows plus per-status counts and overdue and unassigned totals |
+| PATCH | `/flags/{finding_id}` | reviewer or admin | Sets any of `owner`, `due_at`, `status`. Sending a field set to null clears it; a field not sent is left alone. **Appends an entry to that asset's hash chain** |
+
+Filters on `GET /remediation`, combinable:
+
+| Filter | Means |
+|---|---|
+| `mine=true` | `owner` equals the signed-in account's email |
+| `team=<name>` | `routed_to` equals that team name (teams exist only as routing values; accounts carry no team field) |
+| `overdue=true` | `due_at` is in the past and the status is neither `closed` nor `dismissed` |
+| `unassigned=true` | `owner` is null |
+| `status=<word>` | Exact match on one of the five status words |
+
+The status vocabulary is `open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`. `PATCH` accepts only the first four (the board columns):
+
+| Code | When |
+|---|---|
+| 422 | No field sent at all, a status outside the four board columns (the error points at the override path for dismissal), or a malformed `due_at` |
+| 404 | No asset for that finding id, or the finding is not on its asset |
+| 409 | The finding is `dismissed`. A dismissal is a recorded judgement with a reason attached; it cannot be revived by a drag |
+
 **The sweep and the estate views:**
 
 | Method | Path | Who | Notes |
