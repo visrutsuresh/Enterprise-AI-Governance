@@ -11,7 +11,10 @@ swappable rules, and nothing about that judgement can be quietly rewritten.
    for a real answer. Never demo on a cold lane.
 4. Run the sweep so the tower opens with overnight findings:
    `POST /sweep/run {"limit": 10}` (as admin), keep the report on screen.
-5. Backend `uv run uvicorn api:app --port 8006`, frontend `npm run dev` (port 3001).
+5. Backend `uv run uvicorn api:app --reload` (:8000), frontend `npm run dev` (:3000).
+   The front end hardcodes `http://localhost:8000`, so run ONE of the three apps
+   at a time. The old 8006/3001 pair was from an abandoned plan to run #4 and #6
+   side by side; following it leaves the tower unable to reach the API.
 6. Log in as admin@governance.dev. Keep a psql window ready for beat 3.
 7. The recorded backup of all four beats is loaded and ready to play (mandatory).
 

@@ -34,6 +34,7 @@ export default function DeskLayout({
   if (loading || !user)
     return <main className="min-h-[100dvh] bg-[var(--parchment)]" />;
   const onTower = pathname === "/tower" || pathname.startsWith("/assets");
+  const onWork = pathname === "/remediation";
   const onPeople = pathname === "/admin";
   const linkCls = (on: boolean) =>
     `text-[13.5px] font-medium pb-1 border-b-2 transition-colors ${
@@ -56,6 +57,9 @@ export default function DeskLayout({
           <nav className="flex gap-6 ml-6">
             <Link href="/tower" className={linkCls(onTower)}>
               Control tower
+            </Link>
+            <Link href="/remediation" className={linkCls(onWork)}>
+              Remediation
             </Link>
             {user.role === "admin" && (
               <Link href="/admin" className={linkCls(onPeople)}>

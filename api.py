@@ -3,7 +3,7 @@ import threading
 import uuid
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -286,6 +286,160 @@ def decide_flag(finding_id: str, payload: FlagDecisionIn, user: User = Depends(r
         "reason": reason,
         "by": user.email,
     }
+
+
+# --- remediation: the half of governance that is somebody's actual job -------
+#
+# Routing says who should look. A decision says what they concluded. Neither says
+# whether the work got DONE, which is what an auditor asks next. These two routes
+# add the missing middle: an owner, a deadline, and a state that moves.
+
+REMEDIATION_STATUSES = ("open", "in_progress", "awaiting_evidence", "closed", "dismissed")
+# dismissed is deliberately NOT a board column: dismissing a finding is an
+# override, which requires a written reason, and that path stays on /decision.
+BOARD_STATUSES = ("open", "in_progress", "awaiting_evidence", "closed")
+
+
+def _finding_view(row: dict) -> dict:
+    # one flat row for the board: the finding plus the asset context it needs
+    f = row["finding"]
+    return {
+        "finding_id": f.get("finding_id"),
+        "asset_id": row["asset_id"],
+        "asset_name": row["asset_name"],
+        "risk_tier": row["risk_tier"],
+        "inspector": f.get("inspector"),
+        "control_id": f.get("control_id"),
+        "severity": f.get("severity"),
+        "plain": f.get("plain"),
+        "remediation": f.get("remediation"),
+        "status": (f.get("status") or "open").lower(),
+        "owner": f.get("owner"),
+        "due_at": f.get("due_at"),
+        "routed_to": f.get("routed_to"),
+        "evidence_files": f.get("evidence_files") or [],
+        "review": f.get("review"),
+    }
+
+
+def _is_overdue(view: dict, today: date) -> bool:
+    if not view["due_at"] or view["status"] in ("closed", "dismissed"):
+        return False
+    try:
+        return date.fromisoformat(str(view["due_at"])[:10]) < today
+    except ValueError:
+        return False  # an unparseable date is a data problem, not an overdue item
+
+
+@app.get("/remediation")
+def remediation_queue(
+    mine: bool = False,
+    unassigned: bool = False,
+    overdue: bool = False,
+    team: str = "",
+    status: str = "",
+    user: User = Depends(require_reviewer),
+):
+    # The board reads this. Filters are applied here rather than in SQL because the
+    # whole estate is ~200 findings: readable beats clever at this size.
+    if status and status not in REMEDIATION_STATUSES:
+        raise HTTPException(status_code=422,
+                            detail=f"status must be one of: {', '.join(REMEDIATION_STATUSES)}")
+    today = datetime.now(timezone.utc).date()
+    rows = []
+    for raw in store.list_findings():
+        v = _finding_view(raw)
+        if not v["finding_id"]:
+            continue  # a malformed finding cannot be worked on; fan_in already logs these
+        if status and v["status"] != status:
+            continue
+        if mine and (v["owner"] or "").lower() != user.email.lower():
+            continue
+        if unassigned and v["owner"]:
+            continue
+        if team and (v["routed_to"] or "") != team:
+            continue
+        if overdue and not _is_overdue(v, today):
+            continue
+        v["overdue"] = _is_overdue(v, today)
+        rows.append(v)
+    counts = {s: 0 for s in REMEDIATION_STATUSES}
+    for v in rows:
+        counts[v["status"]] = counts.get(v["status"], 0) + 1
+    return {
+        "findings": rows,
+        "counts": counts,
+        "overdue": sum(1 for v in rows if v["overdue"]),
+        "unassigned": sum(1 for v in rows if not v["owner"]),
+    }
+
+
+class FlagPatchIn(BaseModel):
+    owner: str | None = None  # null clears it back to unassigned
+    due_at: str | None = None  # ISO date, null clears it
+    status: str | None = None
+
+
+@app.patch("/flags/{finding_id}")
+def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(require_reviewer)):
+    sent = payload.model_fields_set  # so "clear the owner" is distinguishable from "leave it alone"
+    if not sent:
+        raise HTTPException(status_code=422, detail="send at least one of owner, due_at, status")
+
+    new_status = None
+    if "status" in sent:
+        new_status = (payload.status or "").lower()
+        if new_status not in BOARD_STATUSES:
+            # naming the board columns, not all five words, is the useful error here
+            raise HTTPException(
+                status_code=422,
+                detail=f"status must be one of: {', '.join(BOARD_STATUSES)}. "
+                       "To dismiss a finding use the override verdict, which requires a reason.")
+
+    if "due_at" in sent and payload.due_at:
+        try:
+            date.fromisoformat(payload.due_at[:10])
+        except ValueError:
+            raise HTTPException(status_code=422, detail="due_at must be a date like 2026-07-31")
+
+    state, _assessment, finding = _find_finding(finding_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no asset for that finding id")
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found on its asset")
+    if (finding.get("status") or "open").lower() == "dismissed":
+        # a dismissal is a recorded judgement with a reason attached. Quietly
+        # reviving it by dragging a card would undermine the whole audit story.
+        raise HTTPException(status_code=409,
+                            detail="this finding was dismissed by an override; it cannot be moved")
+
+    notes = []
+    if "owner" in sent:
+        owner = (payload.owner or "").strip() or None
+        finding["owner"] = owner
+        notes.append(f"owner set to {owner}" if owner else "owner cleared")
+    if "due_at" in sent:
+        due = (payload.due_at or "").strip() or None
+        finding["due_at"] = due
+        notes.append(f"due {due}" if due else "due date cleared")
+    if new_status is not None:
+        was = (finding.get("status") or "open").lower()
+        finding["status"] = new_status
+        notes.append(f"status {was} -> {new_status}")
+
+    # the product's promise: remediation state cannot change without a trace
+    state["audit"] = audit.chain(
+        state.get("audit") or [],
+        [f"remediation: {finding_id} {'; '.join(notes)} by {user.email}"],
+    )
+    store.save(state)
+    return _finding_view({
+        "asset_id": state["asset_id"],
+        "asset_name": state.get("asset", {}).get("name"),
+        "risk_tier": state.get("asset", {}).get("risk_tier"),
+        "risk_level": None,
+        "finding": finding,
+    })
 
 
 @app.get("/brief")

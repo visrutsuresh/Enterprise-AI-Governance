@@ -1,0 +1,418 @@
+"use client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { api } from "@/lib/api";
+import { useUser } from "@/lib/useUser";
+
+type Finding = {
+  finding_id: string;
+  asset_id: string;
+  asset_name: string | null;
+  risk_tier: string | null;
+  inspector: string | null;
+  control_id: string | null;
+  severity: string | null;
+  plain: string | null;
+  remediation: string | null;
+  status: string;
+  owner: string | null;
+  due_at: string | null;
+  routed_to: string | null;
+  evidence_files: unknown[];
+  overdue: boolean;
+  review: { verdict?: string } | null;
+};
+
+type Board = {
+  findings: Finding[];
+  counts: Record<string, number>;
+  overdue: number;
+  unassigned: number;
+};
+
+// dismissed is deliberately absent: dismissing needs a written reason, so it stays
+// on the override path. There is no column to drag a finding into.
+const COLUMNS = [
+  { key: "open", label: "OPEN" },
+  { key: "in_progress", label: "IN PROGRESS" },
+  { key: "awaiting_evidence", label: "AWAITING EVIDENCE" },
+  { key: "closed", label: "CLOSED" },
+] as const;
+
+const SCOPES = [
+  { key: "mine", label: "MINE" },
+  { key: "unassigned", label: "UNASSIGNED" },
+  { key: "overdue", label: "OVERDUE" },
+  { key: "all", label: "ALL" },
+] as const;
+
+function sevClass(sev: string | null) {
+  const s = (sev ?? "").toLowerCase();
+  if (s === "critical" || s === "high" || s === "serious")
+    return "bg-[var(--rust-wash)] text-[var(--rust)]";
+  if (s === "medium" || s === "moderate")
+    return "bg-[var(--amber-wash)] text-[var(--amber)]";
+  return "bg-[var(--olive-wash)] text-[var(--olive)]";
+}
+
+function dueLabel(f: Finding) {
+  if (!f.due_at) return "no date";
+  const d = new Date(f.due_at);
+  const txt = d
+    .toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+    .toUpperCase();
+  return f.overdue ? `LATE ${txt}` : txt;
+}
+
+function initials(email: string | null) {
+  if (!email) return "?";
+  return email.slice(0, 2).toUpperCase();
+}
+
+/* ---------------------------------------------------------------- one card */
+
+function Card({
+  f,
+  onAssign,
+  onDue,
+  dragging,
+}: {
+  f: Finding;
+  onAssign: (f: Finding, mine: boolean) => void;
+  onDue: (f: Finding, due: string) => void;
+  dragging?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: f.finding_id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
+      className={`panel p-3 mb-2 ${isDragging || dragging ? "opacity-40" : ""}`}
+    >
+      {/* the grip is the drag handle. The footer controls are NOT, or every
+          click on the date picker would start a drag instead. */}
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+        <span
+          className={`font-array text-[9px] tracking-wider px-2 py-[3px] rounded-[4px] font-bold ${sevClass(f.severity)}`}
+        >
+          {(f.severity ?? "—").toUpperCase()}
+        </span>
+        <p className="text-[12.5px] font-semibold mt-2 leading-snug">{f.plain}</p>
+        <p className="font-array text-[9.5px] text-[var(--ink-soft)] mt-1">
+          {f.control_id} · {f.inspector}
+        </p>
+      </div>
+
+      <Link
+        href={`/assets/${f.asset_id}`}
+        className="font-array text-[9.5px] text-[var(--accent)] hover:underline mt-1 inline-block"
+      >
+        {f.asset_name ?? f.asset_id}
+      </Link>
+
+      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--line)]">
+        {f.owner ? (
+          <button
+            onClick={() => onAssign(f, false)}
+            title={`${f.owner} — click to unassign`}
+            className="w-[22px] h-[22px] rounded-full bg-[var(--accent-wash)] text-[var(--accent)] font-array text-[9px] font-bold grid place-items-center hover:opacity-70"
+          >
+            {initials(f.owner)}
+          </button>
+        ) : (
+          <button
+            onClick={() => onAssign(f, true)}
+            className="font-array text-[9px] tracking-wider text-[var(--accent)] hover:underline"
+          >
+            ASSIGN TO ME
+          </button>
+        )}
+        <input
+          type="date"
+          value={f.due_at ? String(f.due_at).slice(0, 10) : ""}
+          onChange={(e) => onDue(f, e.target.value)}
+          className={`ml-auto bg-transparent font-array text-[9.5px] outline-none ${
+            f.overdue ? "text-[var(--rust)] font-bold" : "text-[var(--ink-soft)]"
+          }`}
+          title={dueLabel(f)}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- one column */
+
+function Column({
+  col,
+  findings,
+  ...rest
+}: {
+  col: (typeof COLUMNS)[number];
+  findings: Finding[];
+  onAssign: (f: Finding, mine: boolean) => void;
+  onDue: (f: Finding, due: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: col.key });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-[var(--radius)] p-3 transition-colors ${
+        isOver ? "bg-[var(--accent-wash)]" : "bg-[rgba(255,255,255,0.02)]"
+      }`}
+    >
+      <div className="flex justify-between font-array text-[9px] tracking-[0.09em] text-[var(--ink-soft)] mb-3">
+        <span>{col.label}</span>
+        <span>{findings.length}</span>
+      </div>
+      {findings.map((f) => (
+        <Card key={f.finding_id} f={f} {...rest} />
+      ))}
+      {findings.length === 0 && (
+        <p className="font-array text-[9.5px] text-[var(--ink-soft)] opacity-50 py-4 text-center">
+          nothing here
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- the page */
+
+export default function Remediation() {
+  const { user } = useUser();
+  const [board, setBoard] = useState<Board | null>(null);
+  const [scope, setScope] = useState<string>("mine");
+  const [team, setTeam] = useState("");
+  const [error, setError] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    // a small threshold so a click on a card is a click, not a one-pixel drag
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+
+  const load = useCallback(async () => {
+    const p = new URLSearchParams();
+    if (scope === "mine") p.set("mine", "true");
+    if (scope === "unassigned") p.set("unassigned", "true");
+    if (scope === "overdue") p.set("overdue", "true");
+    if (team) p.set("team", team);
+    try {
+      setBoard(await api(`/remediation?${p}`));
+    } catch (e) {
+      setError(String(e));
+    }
+  }, [scope, team]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const teams = useMemo(() => {
+    const s = new Set<string>();
+    board?.findings.forEach((f) => f.routed_to && s.add(f.routed_to));
+    return [...s].sort();
+  }, [board]);
+
+  // one place that writes a change and repairs the screen if the server says no
+  async function patch(f: Finding, body: Record<string, unknown>, optimistic: Partial<Finding>) {
+    const before = board;
+    setError("");
+    setBoard((b) =>
+      b
+        ? {
+            ...b,
+            findings: b.findings.map((x) =>
+              x.finding_id === f.finding_id ? { ...x, ...optimistic } : x,
+            ),
+          }
+        : b,
+    );
+    try {
+      await api(`/flags/${f.finding_id}`, { method: "PATCH", body: JSON.stringify(body) });
+      load(); // re-read so counts, overdue flags and filters are the server's truth
+    } catch (e) {
+      setBoard(before); // put the card back where it was
+      const msg = String(e);
+      setError(
+        msg.includes("409")
+          ? "That finding was dismissed by an override, so it cannot be moved. Reopen it through the asset instead."
+          : `That change did not save: ${msg}`,
+      );
+    }
+  }
+
+  function onDragEnd(ev: DragEndEvent) {
+    setDragId(null);
+    const to = String(ev.over?.id ?? "");
+    const f = board?.findings.find((x) => x.finding_id === ev.active.id);
+    if (!f || !to || to === f.status) return;
+    patch(f, { status: to }, { status: to });
+  }
+
+  const rowsView = scope === "all";
+
+  if (error && !board)
+    return <main className="py-9 text-[var(--rust)]">{error}</main>;
+
+  return (
+    <main className="py-9">
+      <div className="flex items-baseline gap-4">
+        <h1 className="text-[26px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+          Remediation
+        </h1>
+        {board && (
+          <span className="font-array text-[10.5px] text-[var(--ink-soft)]">
+            {board.findings.length} SHOWN · {board.overdue} OVERDUE ·{" "}
+            {board.unassigned} UNASSIGNED
+          </span>
+        )}
+      </div>
+      <p className="text-[13px] text-[var(--ink-soft)] mt-2 max-w-[70ch]">
+        A confirmed finding is not a fixed one. This is where an accepted flag gets an
+        owner, a deadline and a state that moves, and every one of those changes joins
+        the asset&apos;s audit chain.
+      </p>
+
+      <div className="flex items-center gap-2 mt-5 flex-wrap">
+        {SCOPES.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setScope(s.key)}
+            className={`font-array text-[9.5px] tracking-wider px-3 py-[6px] rounded-full border transition-colors ${
+              scope === s.key
+                ? "bg-[var(--accent-wash)] text-[var(--accent)] border-[var(--accent)]"
+                : "text-[var(--ink-soft)] border-[var(--line)] hover:text-[var(--ink)]"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+        {teams.length > 0 && (
+          <select
+            value={team}
+            onChange={(e) => setTeam(e.target.value)}
+            className="font-array text-[9.5px] tracking-wider bg-transparent border border-[var(--line)] rounded-full px-3 py-[6px] outline-none text-[var(--ink-soft)]"
+          >
+            <option value="">ANY TEAM</option>
+            {teams.map((t) => (
+              <option key={t} value={t}>
+                {t.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {error && (
+        <p className="attn-note mt-4 text-[12.5px]" role="alert">
+          {error}
+        </p>
+      )}
+
+      {!board ? (
+        <p className="text-[var(--ink-soft)] mt-6">Loading the work…</p>
+      ) : rowsView ? (
+        /* the whole estate is ~200 findings: four columns of that is unusable,
+           so the ALL view is a list. Same data, same endpoint. */
+        <div className="panel mt-5 overflow-hidden">
+          <div className="grid grid-cols-[92px_1fr_150px_120px_92px_84px] gap-3 px-4 py-3 font-array text-[9px] tracking-[0.09em] text-[var(--ink-soft)] border-b border-[var(--line)]">
+            <span>SEVERITY</span>
+            <span>FINDING</span>
+            <span>ASSET</span>
+            <span>OWNER</span>
+            <span>DUE</span>
+            <span>STATUS</span>
+          </div>
+          {board.findings.map((f) => (
+            <div
+              key={f.finding_id}
+              className="grid grid-cols-[92px_1fr_150px_120px_92px_84px] gap-3 px-4 py-3 items-center border-b border-[var(--line)] last:border-0"
+            >
+              <span
+                className={`font-array text-[9px] tracking-wider px-2 py-[3px] rounded-[4px] font-bold justify-self-start ${sevClass(f.severity)}`}
+              >
+                {(f.severity ?? "—").toUpperCase()}
+              </span>
+              <span>
+                <span className="block text-[13px] font-semibold">{f.plain}</span>
+                <span className="block font-array text-[9.5px] text-[var(--ink-soft)] mt-[2px]">
+                  {f.control_id} · {f.inspector}
+                </span>
+              </span>
+              <Link
+                href={`/assets/${f.asset_id}`}
+                className="font-array text-[9.5px] text-[var(--accent)] hover:underline truncate"
+              >
+                {f.asset_name ?? f.asset_id}
+              </Link>
+              <span className="font-array text-[9.5px] text-[var(--ink-soft)] truncate">
+                {f.owner ?? "unassigned"}
+              </span>
+              <span
+                className={`font-array text-[9.5px] ${f.overdue ? "text-[var(--rust)] font-bold" : "text-[var(--ink-soft)]"}`}
+              >
+                {dueLabel(f)}
+              </span>
+              <span className="font-array text-[9px] tracking-wider text-[var(--ink-soft)]">
+                {f.status.replace("_", " ").toUpperCase()}
+              </span>
+            </div>
+          ))}
+          {board.findings.length === 0 && (
+            <p className="text-[var(--ink-soft)] p-6 text-[13px]">
+              No findings match that filter.
+            </p>
+          )}
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setDragId(null)}
+        >
+          <div className="grid grid-cols-4 gap-3 mt-5 items-start">
+            {COLUMNS.map((col) => (
+              <Column
+                key={col.key}
+                col={col}
+                findings={board.findings.filter((f) => f.status === col.key)}
+                onAssign={(f, mine) =>
+                  patch(f, { owner: mine ? user?.email ?? null : null }, {
+                    owner: mine ? user?.email ?? null : null,
+                  })
+                }
+                onDue={(f, due) => patch(f, { due_at: due || null }, { due_at: due || null })}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {dragId ? (
+              <div className="panel p-3 shadow-[var(--lift-hi)] rotate-[1.5deg]">
+                <p className="text-[12.5px] font-semibold">
+                  {board.findings.find((f) => f.finding_id === dragId)?.plain}
+                </p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+    </main>
+  );
+}

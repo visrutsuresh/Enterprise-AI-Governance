@@ -137,6 +137,25 @@ def set_stage(asset_id: str, stage: str) -> bool:
         return cur.rowcount > 0
 
 
+def list_findings() -> list[dict]:
+    # every finding in the estate, lifted out of the per-asset JSONB blobs and
+    # paired with the asset context the remediation board needs to make sense of
+    # it. There is no findings TABLE: findings live inside the asset's assessment,
+    # so this flattens with a lateral join the same way list_all counts them.
+    # The 4s control-tower poll must keep using list_all; this is heavier.
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT a.asset_id, a.name AS asset_name, a.risk_tier, a.risk_level,
+                   a.owner AS asset_owner, a.created_at, f.value AS finding
+            FROM assets a,
+                 jsonb_array_elements(
+                     COALESCE(a.state->'asset'->'assessment'->'findings', '[]'::jsonb)) AS f
+            ORDER BY a.created_at DESC
+        """)
+        return cur.fetchall()
+
+
 def list_metrics_rows() -> list[dict]:
     # richer rows for the executive dashboard: the label columns plus the
     # findings array, decision and human_oversight pulled from the JSONB blob.

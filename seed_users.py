@@ -32,4 +32,7 @@ async def main():
                 print(f"exists  {email}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    # guarded so SEEDS can be imported (seed_estate reads the reviewer list from
+    # it) without the import itself seeding accounts or needing a live database
+    asyncio.run(main())
