@@ -48,6 +48,12 @@ The remediation screen shows every finding as a card on a four-column board: ope
 
 Two things the board will refuse, on purpose: you cannot drag a card to dismissed (dismissal is an override and needs a written reason), and a dismissed finding cannot be dragged back to life. Every move you make is written into that asset's audit chain.
 
+### Evidence on a card
+
+The bottom of each card says either NO EVIDENCE or EVIDENCE with a count. Click it to open the list, where every file downloads by name, and use **+ ATTACH PROOF** to add one: a screenshot of the corrected setting, a signed policy, whatever shows the work happened. Images, PDF, plain text and CSV up to 10 MB are accepted, and anything else is refused with the reason on screen.
+
+The upload joins the asset's audit chain, so the proof and the claim live in the same record. **Files cannot be removed**, because evidence is an audit record and quietly deleting one is exactly what the chain exists to prevent. A dismissed finding takes no evidence.
+
 ## 6. Swapping the rulebook
 
 This is the feature worth understanding. The rules are data, not code. Activating a different policy pack re-scores every asset in the estate against the new rules **immediately and at no cost**, because rule applicability is decided by plain matching rather than by the model.

@@ -5,7 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
@@ -440,6 +440,93 @@ def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(requ
         "risk_level": None,
         "finding": finding,
     })
+
+
+# --- evidence: the proof that the remediation actually happened -------------
+#
+# The board already has an AWAITING EVIDENCE column, which until now was a
+# promise with nothing behind it. A closed finding that an auditor cannot
+# inspect is a claim, not a control. These three routes are the difference.
+
+MAX_EVIDENCE_BYTES = 10 * 1024 * 1024  # 10MB: screenshots and signed PDFs, not datasets
+ALLOWED_EVIDENCE_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+    "text/plain",
+    "text/csv",
+}
+
+
+@app.post("/flags/{finding_id}/evidence")
+async def upload_evidence(
+    finding_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(require_reviewer),
+):
+    if file.content_type not in ALLOWED_EVIDENCE_TYPES:
+        raise HTTPException(status_code=400, detail=f"unsupported type: {file.content_type}")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    if len(data) > MAX_EVIDENCE_BYTES:
+        raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
+
+    state, _assessment, finding = _find_finding(finding_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no asset for that finding id")
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found on its asset")
+    if (finding.get("status") or "open").lower() == "dismissed":
+        # same reasoning as the PATCH route: a dismissal is a recorded judgement,
+        # and attaching proof of work to it would tell a confusing story
+        raise HTTPException(status_code=409, detail="this finding was dismissed by an override; it takes no evidence")
+
+    row = store.add_evidence(
+        finding_id, state["asset_id"], file.filename, file.content_type, data, user.email
+    )
+    # mirror the metadata onto the finding so the board can show a count without
+    # a second query per card. The TABLE stays the source of truth for content.
+    finding["evidence_files"] = (finding.get("evidence_files") or []) + [
+        {
+            "id": row["id"],
+            "filename": row["filename"],
+            "size": row["size"],
+            "uploaded_by": row["uploaded_by"],
+            "at": row["created_at"].isoformat() if row["created_at"] else None,
+        }
+    ]
+    state["audit"] = audit.chain(
+        state.get("audit") or [],
+        [f"evidence: {finding_id} +{file.filename} ({len(data)} bytes) by {user.email}"],
+    )
+    store.save(state)
+    return {
+        "id": row["id"],
+        "finding_id": finding_id,
+        "filename": row["filename"],
+        "size": row["size"],
+        "uploaded_by": row["uploaded_by"],
+    }
+
+
+@app.get("/flags/{finding_id}/evidence")
+def list_flag_evidence(finding_id: str, user: User = Depends(require_reviewer)):
+    return store.list_evidence(finding_id)
+
+
+@app.get("/evidence/{evidence_id}")
+def download_evidence(evidence_id: int, user: User = Depends(require_reviewer)):
+    row = store.get_evidence(evidence_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="evidence not found")
+    return Response(
+        content=bytes(row["data"]),
+        media_type=row["content_type"] or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"'},
+    )
 
 
 @app.get("/brief")

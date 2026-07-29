@@ -37,8 +37,8 @@ Order: containers up, seed accounts, seed the estate, seed precedent, start the 
 ## 5. Open work, in the order worth doing
 
 1. **Tier accuracy**, currently 73 percent with at least one asset under-rated. The highest-stakes judgement the system makes.
-2. **Endpoint-level tests for the rest of the API.** The flag-decision endpoint has eight and the remediation endpoints nineteen; registration, packs, sweep and the brief have none. This is possible because table creation moved out of module import into the startup hook.
-3. **Evidence file upload.** `evidence_files` exists on every finding and the board shows a count, but there is no upload endpoint yet; #4's `file_bytes BYTEA` pattern is the intended shape.
+2. **Endpoint-level tests for the rest of the API.** The flag-decision endpoint has eight, the remediation endpoints nineteen and evidence eleven; registration, packs, sweep and the brief have none. This is possible because table creation moved out of module import into the startup hook.
+3. **Evidence retention and withdrawal.** Upload, listing and download shipped 2026-07-29 (ADR-014), with no delete route on purpose. If a file is ever uploaded in error, the answer is a new recorded event that supersedes it, not an erasure; that event does not exist yet. Nothing prunes the `evidence` table either, so a long-running estate grows unbounded.
 4. **A test asserting asset descriptions can never reach a third party.**
 5. **Signed or version-controlled packs**, with a record of who activated what and when. The rulebook is the trust anchor and today it is a writable file.
 6. **Per-team access boundaries** on the estate.

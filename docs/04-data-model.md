@@ -20,6 +20,21 @@
 
 The `source` column matters more than it looks: it is how a genuinely live registration is told apart from the seeded estate during a demonstration.
 
+### `evidence`
+
+| Column | Type | Meaning |
+|---|---|---|
+| `id` | SERIAL, primary key | Download handle |
+| `finding_id` | TEXT, indexed | The finding this proves work on |
+| `asset_id` | TEXT | Denormalised so evidence can be swept per asset without opening any blob |
+| `filename`, `content_type` | TEXT | As uploaded |
+| `size` | INT | Bytes, computed server-side rather than trusted from the client |
+| `data` | BYTEA | The file itself |
+| `uploaded_by` | TEXT | The account's email |
+| `created_at` | TIMESTAMPTZ | Upload time |
+
+**Why this is a table when the four remediation fields were not.** Those were small scalars, so putting them in the existing JSONB avoided a migration and cost nothing. Bytes are different: the asset blob is read in full on every estate view, and a few screenshots inside it would slow down every one of those reads for the sake of a column almost nobody opens. So the bytes get a table, and only the file's *metadata* is mirrored onto the finding, which lets the board show a count per card without a second query. **The table is the source of truth for content; the mirror is a display convenience.**
+
 ### Accounts
 
 Roles are `reviewer` and `admin`. **No open signup**; an administrator creates every account.

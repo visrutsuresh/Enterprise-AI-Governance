@@ -27,6 +27,7 @@ A control tower. It keeps a central inventory of every AI asset in the company, 
 | FR-9 | Route a flag to a human reviewer, with no automatic blocking | MET |
 | FR-9a | Record what the reviewer concluded: approve a finding as real, or override it with a mandatory reason, and put that verdict in the audit chain | MET |
 | FR-9b | Track remediation as work: every finding can carry an owner, a due date and a status (`open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`), workable from a board with drag and drop, with every change in the audit chain. An approved finding stays open, because approval starts remediation rather than ending it | MET 2026-07-28 |
+| FR-9c | Attach evidence to a finding: the file that proves the remediation happened, downloadable later by an auditor, with the upload recorded in the audit chain | MET 2026-07-29 |
 | FR-10 | Swap the active rulebook and re-score the estate against the new one | MET, deterministic re-scoring, no model calls |
 | FR-11 | Sweep the estate on demand: monitoring, regulatory intelligence, and audit reporting | MET |
 | FR-12 | Produce an executive brief over the estate | MET |

@@ -36,6 +36,25 @@ def init_db():
         # fresh database. When this table needs a new column later, patch
         # existing databases right here with an ALTER TABLE ... IF NOT EXISTS.
 
+        # Evidence is the ONE part of a finding that is not a fact about the
+        # finding: it is a file somebody produced to prove the work was done.
+        # It gets a real table rather than a slot in the asset blob, because
+        # bytes in JSONB would bloat every read of every asset.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS evidence(
+                id SERIAL PRIMARY KEY,
+                finding_id TEXT NOT NULL,
+                asset_id TEXT NOT NULL,
+                filename TEXT,
+                content_type TEXT,
+                size INT,
+                data BYTEA,
+                uploaded_by TEXT,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS evidence_finding_idx ON evidence (finding_id)")
+
 
 def save_pending(asset_id: str, name: str, source: str, created_at) -> None:
     # park the asset as "processing" BEFORE the graph runs, so registration
@@ -154,6 +173,41 @@ def list_findings() -> list[dict]:
             ORDER BY a.created_at DESC
         """)
         return cur.fetchall()
+
+
+def add_evidence(
+    finding_id: str, asset_id: str, filename: str, content_type: str, data: bytes, uploaded_by: str
+) -> dict:
+    # returns the metadata row only: the caller never wants the bytes back
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            """INSERT INTO evidence (finding_id, asset_id, filename, content_type, size, data, uploaded_by)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)
+               RETURNING id, finding_id, asset_id, filename, content_type, size, uploaded_by, created_at""",
+            (finding_id, asset_id, filename, content_type, len(data), data, uploaded_by),
+        )
+        return cur.fetchone()
+
+
+def list_evidence(finding_id: str) -> list[dict]:
+    # metadata only, deliberately: the bytes stay in the table until a download asks
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            """SELECT id, finding_id, asset_id, filename, content_type, size, uploaded_by, created_at
+               FROM evidence WHERE finding_id = %s ORDER BY created_at""",
+            (finding_id,),
+        )
+        return cur.fetchall()
+
+
+def get_evidence(evidence_id: int) -> dict | None:
+    # the only read that opens the bytes column
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("SELECT filename, content_type, data FROM evidence WHERE id = %s", (evidence_id,))
+        return cur.fetchone()
 
 
 def list_metrics_rows() -> list[dict]:

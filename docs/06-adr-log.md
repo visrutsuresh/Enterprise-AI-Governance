@@ -110,3 +110,15 @@
 **Options.** Dense rows with inline status edits; a four-column status board with drag and drop; both.
 **Decision.** A board with real drag and drop (dnd-kit) for the filtered views, chosen by the CEO from browser mockups, with the ALL view rendering as dense rows because 200 findings do not fit in columns. Two guards are requirements: `dismissed` is not a column and cannot be reached by dragging (dismissal stays on the override path, which requires a written reason), and a dismissed finding cannot be revived by a drag (409).
 **Consequences.** The workflow reads as a product rather than an admin table, at roughly four extra hours of build cost. Drag listeners sit on a grip rather than the whole card, so the date picker inside a card does not start a drag. Every move writes an audit entry, keeping the tamper-evident chain the single story.
+
+---
+
+## ADR-014. Evidence files get their own table, and cannot be deleted
+
+**Context.** `awaiting_evidence` had been a board column since 2026-07-28 with nothing behind it: there was no way to attach the proof the column was waiting for. ADR-012 had just established the opposite instinct, that finding state belongs in the existing JSONB.
+
+**Options.** Bytes in the asset JSONB, consistent with ADR-012; a separate `evidence` table; an object store or a directory on disk with a path in the database.
+
+**Decision.** A separate table, with only the file's metadata mirrored onto the finding. ADR-012's reasoning does not carry over: it traded a migration for small scalars that every reader wanted anyway, whereas the asset blob is read in full on every estate view and file bytes inside it would tax every one of those reads to serve a column almost nobody opens. An object store was rejected as infrastructure this project does not otherwise need, and a disk path was rejected because the demo runs on two different laptops and a database row travels with the dump.
+
+**Consequences.** One new table and one index, created through the same `CREATE TABLE IF NOT EXISTS` seam, so an existing database picks it up on the next boot with no migration step. The mirror can in principle drift from the table; the table is declared the source of truth for content and the mirror a display convenience, which is enough because nothing rewrites either after the upload. **There is no delete route, deliberately:** evidence is an audit record, and silent removal is the exact operation the hash chain exists to make impossible. Withdrawing a file would have to be a new recorded event, not an erasure.

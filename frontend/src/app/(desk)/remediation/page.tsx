@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { API_BASE, upload } from "@/lib/api";
 import {
   DndContext,
   DragEndEvent,
@@ -14,6 +15,13 @@ import {
 } from "@dnd-kit/core";
 import { api } from "@/lib/api";
 import { useUser } from "@/lib/useUser";
+
+type EvidenceFile = {
+  id: number;
+  filename: string;
+  size: number;
+  uploaded_by: string | null;
+};
 
 type Finding = {
   finding_id: string;
@@ -29,7 +37,7 @@ type Finding = {
   owner: string | null;
   due_at: string | null;
   routed_to: string | null;
-  evidence_files: unknown[];
+  evidence_files: EvidenceFile[];
   overdue: boolean;
   review: { verdict?: string } | null;
 };
@@ -80,17 +88,88 @@ function initials(email: string | null) {
   return email.slice(0, 2).toUpperCase();
 }
 
+const kb = (n: number) =>
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+
+/* ------------------------------------------------------- evidence on a card */
+
+function Evidence({ f, onUploaded }: { f: Finding; onUploaded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const picker = useRef<HTMLInputElement>(null);
+  const files = f.evidence_files ?? [];
+
+  async function send(file: File) {
+    setErr("");
+    setBusy(true);
+    try {
+      await upload(`/flags/${f.finding_id}/evidence`, file);
+      onUploaded();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      if (picker.current) picker.current.value = ""; // let the same file be re-picked after a failure
+    }
+  }
+
+  return (
+    <div className="mt-2 pt-2 border-t border-[var(--line)]">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`font-array text-[9px] tracking-wider hover:underline ${
+          files.length ? "text-[var(--olive)]" : "text-[var(--ink-soft)]"
+        }`}
+      >
+        {files.length ? `EVIDENCE ${files.length}` : "NO EVIDENCE"}
+      </button>
+
+      {open && (
+        <div className="mt-2">
+          {files.map((e) => (
+            <a
+              key={e.id}
+              href={`${API_BASE}/evidence/${e.id}`}
+              className="block font-array text-[9.5px] text-[var(--accent)] hover:underline truncate"
+              title={`${e.filename} · ${kb(e.size)} · ${e.uploaded_by ?? "unknown"}`}
+            >
+              {e.filename} · {kb(e.size)}
+            </a>
+          ))}
+          <input
+            ref={picker}
+            type="file"
+            className="hidden"
+            onChange={(ev) => ev.target.files?.[0] && send(ev.target.files[0])}
+          />
+          <button
+            onClick={() => picker.current?.click()}
+            disabled={busy}
+            className="font-array text-[9px] tracking-wider text-[var(--accent)] hover:underline mt-1 disabled:opacity-50"
+          >
+            {busy ? "UPLOADING…" : "+ ATTACH PROOF"}
+          </button>
+          {err && <p className="font-array text-[9px] text-[var(--rust)] mt-1 leading-snug">{err}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- one card */
 
 function Card({
   f,
   onAssign,
   onDue,
+  onUploaded,
   dragging,
 }: {
   f: Finding;
   onAssign: (f: Finding, mine: boolean) => void;
   onDue: (f: Finding, due: string) => void;
+  onUploaded: () => void;
   dragging?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -150,6 +229,8 @@ function Card({
           title={dueLabel(f)}
         />
       </div>
+
+      <Evidence f={f} onUploaded={onUploaded} />
     </div>
   );
 }
@@ -165,6 +246,7 @@ function Column({
   findings: Finding[];
   onAssign: (f: Finding, mine: boolean) => void;
   onDue: (f: Finding, due: string) => void;
+  onUploaded: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
   return (
@@ -353,6 +435,9 @@ export default function Remediation() {
                 <span className="block text-[13px] font-semibold">{f.plain}</span>
                 <span className="block font-array text-[9.5px] text-[var(--ink-soft)] mt-[2px]">
                   {f.control_id} · {f.inspector}
+                  {f.evidence_files?.length ? (
+                    <span className="text-[var(--olive)]"> · {f.evidence_files.length} EVIDENCE</span>
+                  ) : null}
                 </span>
               </span>
               <Link
@@ -399,6 +484,7 @@ export default function Remediation() {
                   })
                 }
                 onDue={(f, due) => patch(f, { due_at: due || null }, { due_at: due || null })}
+                onUploaded={load}
               />
             ))}
           </div>

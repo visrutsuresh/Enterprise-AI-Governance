@@ -20,10 +20,11 @@ Use `python -m pytest`, not `pytest` alone, or collection cannot find the applic
 
 ## 3. Coverage
 
-**53 tests, green in about a second, no model calls.**
+**64 tests, green in about a second, no model calls.**
 
 | File | Tests | Covers |
 |---|---|---|
+| `test_evidence.py` | 11 | Evidence on a finding, driven through the real endpoints with both the asset store and the evidence table swapped for dicts: an upload lands in the table and mirrors its metadata onto the finding, a second file appends rather than replacing, the upload joins the asset's hash chain and the chain still verifies, an unsupported type and an empty file are refused with 400, a file over the ceiling with 413, a dismissed finding refuses evidence with 409, an unknown finding 404s, listing returns metadata with no bytes, a download returns the exact bytes with an attachment header, and a missing evidence id 404s |
 | `test_remediation.py` | 19 | The remediation queue and board, driven through the real endpoints with the database swapped for a dict: the status vocabulary is enforced (a word outside the four board columns is refused with 422, and the error points at the override path), an unknown finding 404s, each filter (`mine`, `unassigned`, `overdue`, `team`, `status`) returns only matching findings, owner and due date set and clear correctly, a malformed date is refused, every change grows that asset's hash chain by exactly one and leaves the verifier intact, a dismissed finding refuses to be moved with 409, and an approved finding is still `open` and therefore still on the board |
 | `test_flag_decision.py` | 8 | The reviewer's verdict on a flag, driven through the real endpoint with the database swapped for a dict: approve confirms and leaves the work open, override dismisses and keeps the reason, an override with no reason is refused, an unknown verdict is refused, a flag cannot be decided twice, unknown finding and unknown asset both 404, the verdict joins the hash chain and the chain still verifies, and the decision is actually persisted |
 | `test_audit.py` | 5 | The hash chain and its verifier |

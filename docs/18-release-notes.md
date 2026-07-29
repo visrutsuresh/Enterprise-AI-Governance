@@ -2,6 +2,14 @@
 
 **Version 1, 2026-07-28.** No version tags; 18 commits, from 2026-07-23 to 2026-07-27. The system was built code-complete in about a day and hardened over the following three.
 
+## 2026-07-29, evidence
+
+- **The `awaiting_evidence` column finally has something behind it.** A finding can now carry uploaded files: the screenshot of the corrected setting, the signed policy, whatever proves the work was done. Each card on the board opens to list its files and take a new one, and each file downloads by name.
+- **The upload joins the hash chain**, like every other change to a finding, so the proof and the claim that the work happened sit in the same tamper-evident record.
+- **Bytes went in a table, not the asset blob**, reversing the instinct from the remediation release for a stated reason (ADR-014): the blob is read in full on every estate view, and files inside it would tax every one of those reads. Only the metadata is mirrored onto the finding, which is what lets a card show its count without a second query.
+- **There is no delete route, deliberately.** Evidence is an audit record; silent removal is the operation the chain exists to prevent.
+- A dismissed finding refuses evidence (409), on the same reasoning that stops it being dragged. Eleven tests came with it, taking the suite from 53 to 64.
+
 ## 2026-07-28 later, remediation becomes somebody's job
 
 - **The remediation board.** A finding now carries an owner, a due date and a status (`open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`), stored inside the existing JSONB shape so no migration ran. A new `/remediation` screen shows the work as a four-column board with real drag and drop, filterable to mine, my team, unassigned or overdue, and the ALL view renders as dense rows because two hundred findings do not fit in columns.

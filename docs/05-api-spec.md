@@ -89,6 +89,27 @@ The status vocabulary is `open`, `in_progress`, `awaiting_evidence`, `closed`, `
 | 404 | No asset for that finding id, or the finding is not on its asset |
 | 409 | The finding is `dismissed`. A dismissal is a recorded judgement with a reason attached; it cannot be revived by a drag |
 
+## 5b. Evidence
+
+The board has an `awaiting_evidence` column, and this is what it waits for: the file somebody produced to prove the remediation happened. A closed finding an auditor cannot inspect is a claim, not a control.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/flags/{finding_id}/evidence` | reviewer or admin | Multipart upload of one file. **Appends an entry to that asset's hash chain** and mirrors the file's metadata onto the finding |
+| GET | `/flags/{finding_id}/evidence` | reviewer or admin | Metadata for every file on that finding. Never returns the bytes |
+| GET | `/evidence/{id}` | reviewer or admin | Downloads one file as an attachment |
+
+Accepted types are PNG, JPEG, GIF, WebP, PDF, plain text and CSV, up to **10 MB**.
+
+| Code | When |
+|---|---|
+| 400 | An unsupported content type, or an empty file |
+| 413 | The file is over the 10 MB ceiling |
+| 404 | No asset for that finding id, the finding is not on its asset, or no such evidence id |
+| 409 | The finding is `dismissed`. Proof of work on a finding that was overridden away would tell a confusing story, so it is refused on the same reasoning as the `PATCH` route |
+
+**There is deliberately no delete route.** Evidence is an audit record; removing it silently is precisely the operation the hash chain exists to prevent.
+
 **The sweep and the estate views:**
 
 | Method | Path | Who | Notes |

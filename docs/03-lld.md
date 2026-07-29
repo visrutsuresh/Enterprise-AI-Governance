@@ -27,6 +27,8 @@ A finding carries a finding id, the inspector, the **control id** it pins to (a 
 
 Since 2026-07-28 a finding also carries its remediation state: an `owner`, a `due_at` date, an `evidence_files` list, and a five-word `status` vocabulary (`open`, `in_progress`, `awaiting_evidence`, `closed`, `dismissed`). These live inside the same JSONB shape, so no migration ran and findings written earlier read as unassigned and open. `store.list_findings()` flattens findings across the estate the same way the open-finding counter always has, and `PATCH /flags/{finding_id}` does the read-modify-write; both follow the existing single-table pattern rather than normalising into a findings table (a five-hour job instead of twelve, at the accepted cost of last-write-wins on concurrent edits to one asset).
 
+`evidence_files` is the one field on that list that is a mirror rather than the record itself. Since 2026-07-29 the files behind it live in a dedicated `evidence` table (ADR-014) because the asset blob is read whole on every estate view and bytes inside it would tax all of those reads; the finding keeps only each file's id, name, size and uploader so a board card can show a count without a second query. `store.add_evidence` writes both halves in one request path, and there is no delete route.
+
 Pinning every finding to a control id is what makes the audit trail defensible: a reviewer can ask which rule this came from and get an answer.
 
 ## 3. Packs as data
