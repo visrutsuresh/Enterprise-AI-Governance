@@ -75,7 +75,9 @@
 **Context.** Five inspectors fanning out made the platform start a second billed GPU whose model was still loading, which killed runs mid-way in the sibling system.
 **Decision.** Port the proven configuration: one container, a client-side lock, one retry on a stray server error.
 **Consequences.** Predictable cost, no mid-run container swaps. This repository ran an older router for a while and had to have the fix ported across, which is the clearest example of the cost of copy-forking.
-**Amended 2026-07-28.** The lane moved to vLLM and now batches up to 8 requests inside its one container, so the client-side lock was removed from the router (here and in the sibling). The single-container pin stays: it is the platform-side cap, not the lock, that prevents a second billed GPU.
+**Amended 2026-07-28, reverted 2026-07-29.** The lane briefly moved to vLLM with an AWQ checkpoint, batching up to 8 requests inside its one container, and the client-side lock was removed from the router here and in the sibling. It was rolled back the next day. The sibling benchmarked the swap over 13 contracts: 3.0x faster, but detection recall fell from 87.5% to 67.5% and the system produced 109 findings down to 69. Speed is not worth that in either product, so both routers went back to the lock and the lane back to bitsandbytes. The single-container pin was never the thing in question: it is the platform-side cap, not the lock, that prevents a second billed GPU.
+
+One repair from that episode was **kept**, because it is a genuine bug fix rather than part of the swap: `_parse` now falls back to a tolerant read when the model emits Python literals (`True`) inside otherwise valid JSON. Strict JSON rejected the whole reply, so an inspector's entire answer could be discarded over one capital letter, and `temperature=0` made the retry reproduce it exactly. See the sibling's ADR-014.
 
 ---
 
