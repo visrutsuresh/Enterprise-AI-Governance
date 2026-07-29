@@ -75,6 +75,7 @@
 **Context.** Five inspectors fanning out made the platform start a second billed GPU whose model was still loading, which killed runs mid-way in the sibling system.
 **Decision.** Port the proven configuration: one container, a client-side lock, one retry on a stray server error.
 **Consequences.** Predictable cost, no mid-run container swaps. This repository ran an older router for a while and had to have the fix ported across, which is the clearest example of the cost of copy-forking.
+**Amended 2026-07-28.** The lane moved to vLLM and now batches up to 8 requests inside its one container, so the client-side lock was removed from the router (here and in the sibling). The single-container pin stays: it is the platform-side cap, not the lock, that prevents a second billed GPU.
 
 ---
 

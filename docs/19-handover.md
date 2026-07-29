@@ -32,7 +32,7 @@ Order: containers up, seed accounts, seed the estate, seed precedent, start the 
 | Which inspectors run for an asset | `orchestrate_agent` in `app/agents.py` and the conditional edge in `app/graph.py` |
 | How a rulebook swap re-scores the estate | `rescore_policy()` in `app/sweep.py` |
 | How an inspector thinks and uses tools | `app/agents_base.py` |
-| Why the model lane locks | `app/router.py` |
+| How the model lane retries and times out | `app/router.py` |
 
 ## 5. Open work, in the order worth doing
 

@@ -65,7 +65,7 @@ Every node is wrapped with a bounded wall-clock and one retry, recording failure
 | One inspector fails both attempts | Marked failed with a note; the others still produce findings |
 | The orchestrator finds nothing applicable | The graph ends cleanly rather than running five inspectors for nothing |
 | Model output carries a second JSON object | The parser takes the first complete object |
-| Parallel inspectors arrive together | A client-side lock serialises them onto the single GPU container |
+| Parallel inspectors arrive together | The lane batches up to 8 requests inside its single GPU container (vLLM, since 2026-07-28); the platform-side single-container cap still prevents a second billed GPU. The old client-side lock is gone |
 | A stray server error from the lane | One retry, because a container swap surfaces exactly this way |
 
 ## 6. Deterministic by choice
