@@ -6,7 +6,9 @@ from fastembed import TextEmbedding
 from weaviate.classes.config import DataType, Property
 from weaviate.classes.query import Filter, MetadataQuery
 
-COLLECTION = "Precedent"  # past governance decisions, searched by the inspectors (FR-10)
+# past governance decisions, searched by the inspectors (FR-10). Env-driven because
+# the deployed apps share one Weaviate cluster and #4 also claims "Precedent"
+COLLECTION = os.getenv("WEAVIATE_COLLECTION", "Precedent")
 RELEVANCE_FLOOR = 60  # below this, a hit is off-topic noise, not precedent
 
 WEAVIATE_PORT = int(os.getenv("WEAVIATE_PORT", "8082"))  # #6's own local Weaviate (see docker-compose.yml), #4 holds 8081
