@@ -20,14 +20,17 @@ Use `python -m pytest`, not `pytest` alone, or collection cannot find the applic
 
 ## 3. Coverage
 
-**64 tests, green in about a second, no model calls.**
+**80 tests, green in about a second, no model calls.**
 
 | File | Tests | Covers |
 |---|---|---|
 | `test_evidence.py` | 11 | Evidence on a finding, driven through the real endpoints with both the asset store and the evidence table swapped for dicts: an upload lands in the table and mirrors its metadata onto the finding, a second file appends rather than replacing, the upload joins the asset's hash chain and the chain still verifies, an unsupported type and an empty file are refused with 400, a file over the ceiling with 413, a dismissed finding refuses evidence with 409, an unknown finding 404s, listing returns metadata with no bytes, a download returns the exact bytes with an attachment header, and a missing evidence id 404s |
 | `test_remediation.py` | 19 | The remediation queue and board, driven through the real endpoints with the database swapped for a dict: the status vocabulary is enforced (a word outside the four board columns is refused with 422, and the error points at the override path), an unknown finding 404s, each filter (`mine`, `unassigned`, `overdue`, `team`, `status`) returns only matching findings, owner and due date set and clear correctly, a malformed date is refused, every change grows that asset's hash chain by exactly one and leaves the verifier intact, a dismissed finding refuses to be moved with 409, and an approved finding is still `open` and therefore still on the board |
-| `test_flag_decision.py` | 8 | The reviewer's verdict on a flag, driven through the real endpoint with the database swapped for a dict: approve confirms and leaves the work open, override dismisses and keeps the reason, an override with no reason is refused, an unknown verdict is refused, a flag cannot be decided twice, unknown finding and unknown asset both 404, the verdict joins the hash chain and the chain still verifies, and the decision is actually persisted |
-| `test_audit.py` | 5 | The hash chain and its verifier |
+| `test_flag_decision.py` | 9 | The reviewer's verdict on a flag, driven through the real endpoint with the database swapped for a dict: approve confirms and leaves the work open, override dismisses and keeps the reason, an override with no reason is refused, an unknown verdict is refused, a flag cannot be decided twice, unknown finding and unknown asset both 404, the verdict joins the hash chain and the chain still verifies, the decision is actually persisted, and the owner of a finding's remediation is refused from deciding it (maker-checker, 403) |
+| `test_audit.py` | 8 | The hash chain and its verifier, including the newer hashed timestamp and actor fields: a backdated timestamp or a swapped actor breaks the chain, and entries written before those fields existed still verify |
+| `test_tier_override.py` | 5 | The human correction of the AI-assigned risk tier: it changes the tier, records who and why, joins the hash chain intact, refuses a missing reason and an unknown tier, conflicts on a no-op, and 404s on a missing asset |
+| `test_exports.py` | 4 | The CSV exports: register and findings carry headers and quoted rows, the audit CSV marks intact entries per row, and a missing asset 404s |
+| `test_sweep_async.py` | 3 | The backgrounded sweep: start returns immediately, status reports done with the report, an error is visible rather than silent, and a second start while running conflicts |
 | `test_bench_scoring.py` | 5 | The benchmark's own scoring, so the numbers it reports are trustworthy |
 | `test_fanin.py` | 5 | Finding validation, the casing fix on the tier, and the deterministic roll-up |
 | `test_state.py` | 4 | Shapes and the risk roll-up |

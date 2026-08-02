@@ -57,6 +57,7 @@ The re-score returns what changed: findings before and after, and how many asset
 |---|---|
 | 422 | The verdict is neither `approved` nor `overridden` |
 | 422 | An override was sent with no reason. **A dismissal without a reason is exactly what an auditor objects to, so it is refused** |
+| 403 | The deciding reviewer owns this finding's remediation. Maker-checker: the person doing the work cannot also sign it off |
 | 404 | No asset for that finding id, or the finding is not on its asset |
 | 409 | The flag has already been decided; the first verdict stands |
 
@@ -114,9 +115,19 @@ Accepted types are PNG, JPEG, GIF, WebP, PDF, plain text and CSV, up to **10 MB*
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/sweep/run` | admin | Run the estate sweep over a slice: monitoring, regulatory intelligence, audit reporting |
+| POST | `/sweep/run` | admin | Starts the estate sweep in the background and returns `{"state": "started"}` immediately (it used to hold the request open for the whole multi-minute run). 409 if one is already running; rate limited to 2 per hour |
+| GET | `/sweep/status` | reviewer or admin | The current sweep: `idle`, `running`, `done` (with the report), or `error` (with the reason). The tower polls this |
 | GET | `/brief` | reviewer or admin | The executive brief over the estate |
 | GET | `/metrics` | reviewer or admin | Estate metrics for the dashboard |
+
+## 5c. Tier override and exports
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/assets/{asset_id}/tier` | reviewer or admin | Human correction of the AI-assigned risk tier. Body `{"tier", "reason"}`; the reason is mandatory (422 without), the tier must be one of the four EU AI Act tiers (422), 409 if the asset already holds that tier. The correction is appended to the asset's hash chain and kept on the asset as `tier_override` |
+| GET | `/export/register.csv` | reviewer or admin | The full asset register as CSV, the artifact you hand an external auditor |
+| GET | `/export/findings.csv` | reviewer or admin | Every finding in the estate as CSV, with its review verdict, reviewer and reason flattened in |
+| GET | `/assets/{asset_id}/audit.csv` | reviewer or admin | That asset's audit chain as CSV, one row per entry with its hashes, timestamp, actor and an `intact` flag per row |
 
 ## 6. User administration
 

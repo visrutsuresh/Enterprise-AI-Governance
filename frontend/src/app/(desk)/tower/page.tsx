@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { STAGES, TIER_COLORS } from "@/lib/stages";
@@ -140,9 +140,44 @@ export default function Tower() {
   const [brief, setBrief] = useState("");
   const [report, setReport] = useState("");
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [pollFailed, setPollFailed] = useState(false);
+  const alive = useRef(true); // the sweep poll loop must die with the page
+  useEffect(() => {
+    alive.current = true;
+    // reattach: a reload mid-sweep should still learn the outcome
+    api("/sweep/status")
+      .then((s) => {
+        if (s.state === "running") setNotice("A sweep is running server-side; its report will appear when it finishes.");
+        if (s.state === "done" && s.report) setReport(s.report.report);
+      })
+      .catch(() => {});
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const [q, setQ] = useState("");
+  const [tierFilter, setTierFilter] = useState("");
+  const [flaggedOnly, setFlaggedOnly] = useState("");
+
+  // 185 assets filter instantly client-side; no server round-trip needed
+  const needle = q.trim().toLowerCase();
+  const shown = rows.filter(
+    (r) =>
+      (!needle ||
+        `${r.name} ${r.asset_id} ${r.owner ?? ""} ${r.type ?? ""}`.toLowerCase().includes(needle)) &&
+      (!tierFilter || r.risk_tier === tierFilter) &&
+      (!flaggedOnly || (r.open_findings || 0) > 0)
+  );
 
   const refresh = useCallback(() => {
-    api("/assets").then(setRows).catch(() => {});
+    // the estate poll is the page's pulse: a dead backend must show a banner,
+    // not silently freeze the screen on stale numbers
+    api("/assets")
+      .then((r) => {
+        setRows(r);
+        setPollFailed(false);
+      })
+      .catch(() => setPollFailed(true));
     api("/packs").then(setPacks).catch(() => {});
     api("/metrics").then(setMetrics).catch(() => {});
   }, []);
@@ -189,14 +224,29 @@ export default function Tower() {
 
   async function runSweep() {
     setBusy("sweep");
-    setNotice("Sweep running (each asset is a model call)...");
+    setNotice("Sweep started in the background (each asset is a model call, expect minutes)...");
     try {
-      const r = await api("/sweep/run", { method: "POST", body: JSON.stringify({ limit: 10 }) });
-      setReport(r.report);
-      setNotice(
-        `Sweep done: ${r.monitored} monitored, ${r.new_findings} new finding(s), ${r.not_swept} not swept tonight.`
-      );
-      refresh();
+      await api("/sweep/run", { method: "POST", body: JSON.stringify({ limit: 10 }) });
+      // the run happens server-side now; poll until it lands instead of holding one request open
+      for (let i = 0; i < 120 && alive.current; i++) {
+        await new Promise((res) => setTimeout(res, 5000));
+        if (!alive.current) return;
+        const s = await api("/sweep/status");
+        if (s.state === "done") {
+          const r = s.report;
+          setReport(r.report);
+          setNotice(
+            `Sweep done: ${r.monitored} monitored, ${r.new_findings} new finding(s), ${r.not_swept} not swept tonight.`
+          );
+          refresh();
+          return;
+        }
+        if (s.state === "error") {
+          setNotice(`Sweep failed: ${s.error}`);
+          return;
+        }
+      }
+      setNotice("Sweep is still running server-side; it will finish without this page.");
     } catch (e) {
       setNotice(String(e));
     } finally {
@@ -234,6 +284,11 @@ export default function Tower() {
 
   return (
     <main className="py-8 space-y-6">
+      {pollFailed && (
+        <p className="text-[12.5px] text-[#e5484d]">
+          Connection trouble: showing the last known estate, retrying every few seconds.
+        </p>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {stat("assets", rows.length)}
         {stat("with open flags", flagged)}
@@ -319,6 +374,40 @@ export default function Tower() {
         </button>
       </section>
 
+      <div className="flex items-center gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search the register (name, id, owner, type)"
+          className="flex-1 text-[13px] bg-transparent border border-[var(--line)] rounded-lg px-3 py-2 outline-none placeholder:text-[var(--ink-soft)]"
+        />
+        <select
+          value={tierFilter}
+          onChange={(e) => setTierFilter(e.target.value)}
+          className="text-[12.5px] bg-transparent border border-[var(--line)] rounded-lg px-2 py-2"
+        >
+          <option value="">all tiers</option>
+          {["unacceptable", "high", "limited", "minimal"].map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <select
+          value={flaggedOnly}
+          onChange={(e) => setFlaggedOnly(e.target.value)}
+          className="text-[12.5px] bg-transparent border border-[var(--line)] rounded-lg px-2 py-2"
+        >
+          <option value="">all assets</option>
+          <option value="flagged">open flags only</option>
+        </select>
+        {(q || tierFilter || flaggedOnly) && (
+          <span className="text-[12px] text-[var(--ink-soft)]">
+            {shown.length} of {rows.length}
+          </span>
+        )}
+      </div>
+
       <table className="w-full text-[13.5px]">
         <thead>
           <tr className="text-left text-[12px] uppercase tracking-wide text-[var(--ink-soft)] border-b border-[var(--line)]">
@@ -332,7 +421,14 @@ export default function Tower() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {shown.length === 0 && (
+            <tr>
+              <td colSpan={7} className="py-4 text-[var(--ink-soft)]">
+                No assets match. Clear the search or filters to see the full register.
+              </td>
+            </tr>
+          )}
+          {shown.map((r) => (
             <tr key={r.asset_id} className="border-b border-[var(--line)] hover:bg-white/5">
               <td className="py-2.5 pr-3">
                 <Link href={`/assets/${r.asset_id}`} className="font-medium hover:text-[var(--accent)]">

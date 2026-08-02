@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import threading
 import uuid
@@ -16,6 +18,7 @@ from sqlalchemy import select
 from app import audit, precedent, ratelimit, store, sweep
 from app.agents import approval_workflow_agent, executive_advisory_agent
 from app.graph import graph, initial_state
+from app.state import RISK_TIERS
 from app.schemas import UserCreate, UserUpdate
 from app.users import (
     User,
@@ -32,6 +35,10 @@ from app.users import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.init_db()  # tables exist when the API BOOTS, not when this module imports, so tests can drive it without a database
+    # a pack swap is a governance decision; it must not silently revert on reboot
+    for key, value in store.all_settings().items():
+        if key in ("POLICY_PACK", "FRAMEWORK_PACK"):
+            os.environ[key] = value
     await create_user_table()
     try:
         precedent.ensure_collection()  # label the Weaviate drawer on a fresh machine
@@ -206,6 +213,7 @@ def activate_packs(payload: PackSwapIn, user: User = Depends(require_admin)):
             if not (_packs.DATA_DIR / kind / f"{name}.json").exists():
                 raise HTTPException(status_code=404, detail=f"no pack named {name!r} in {kind}")
             os.environ[env_var] = name
+            store.set_setting(env_var, name)  # survives a restart; read back in lifespan
     rescore = sweep.rescore_policy()
     return {"active": active_packs(user), "rescore": rescore}
 
@@ -217,16 +225,39 @@ class SweepIn(BaseModel):
     limit: int = 10
 
 
+# up to 10 serial model calls per run can take many minutes; running that inside
+# the HTTP request froze the tower for the whole duration. The run now happens in
+# the background and the tower polls /sweep/status. In-process state is correct
+# here for the same reason as the rate limiter: the app is pinned to one worker.
+_SWEEP_STATE: dict = {"state": "idle"}
+_SWEEP_LOCK = threading.Lock()  # sync endpoints run on a threadpool; check-and-set must be atomic
+
+
+def _sweep_worker(limit: int) -> None:
+    try:
+        report = sweep.run_sweep(limit)
+        _SWEEP_STATE.update(state="done", report=report, error=None)
+    except Exception as e:
+        _SWEEP_STATE.update(state="error", report=None, error=str(e))
+
+
 @app.post("/sweep/run")
-def run_sweep(payload: SweepIn | None = None, user: User = Depends(require_admin)):
-    ratelimit.check("sweep:global", 2, 3600)  # up to 10 serial model calls per run; twice an hour is plenty
-    # demo endpoint standing in for the nightly cron (plan section 5: a real
-    # scheduler adds ops with no demo value). Synchronous on purpose: the demo
-    # runs it pre-show and wants the report back in the response.
+def run_sweep(background: BackgroundTasks, payload: SweepIn | None = None, user: User = Depends(require_admin)):
     limit = payload.limit if payload else 10
     if not 1 <= limit <= 200:
         raise HTTPException(status_code=422, detail="limit must be 1-200")
-    return sweep.run_sweep(limit)
+    with _SWEEP_LOCK:
+        if _SWEEP_STATE["state"] == "running":
+            raise HTTPException(status_code=409, detail="a sweep is already running")
+        ratelimit.check("sweep:global", 2, 3600)  # after the 409 guard, so a refused call never burns a slot
+        _SWEEP_STATE.update(state="running", report=None, error=None, started_at=datetime.now(timezone.utc).isoformat())
+    background.add_task(_sweep_worker, limit)
+    return {"state": "started", "limit": limit}
+
+
+@app.get("/sweep/status")
+def sweep_status(user: User = Depends(require_reviewer)):
+    return _SWEEP_STATE
 
 
 def _find_finding(finding_id: str):
@@ -252,10 +283,121 @@ def route_flag(finding_id: str, user: User = Depends(require_reviewer)):
         raise HTTPException(status_code=404, detail="finding not found on its asset")
     routing = approval_workflow_agent(finding, state["asset_id"])
     finding["routed_to"] = routing["team"]
-    state["audit"] = audit.chain(state.get("audit") or [],
-                                 [f"approval_workflow: {finding_id} routed to {routing['team']} ({routing['why']})"])
+    state["audit"] = audit.chain_as(state.get("audit") or [],
+                                    [f"approval_workflow: {finding_id} routed to {routing['team']} ({routing['why']})"],
+                                    by=user.email)
     store.save(state)
     return {"finding_id": finding_id, **routing}
+
+
+# --- exports: the artifact you hand an external auditor ----------------------
+
+
+def _no_formula(v):
+    # these files get opened in Excel by auditors; a cell starting =, +, - or @
+    # would execute as a formula, and names/reasons/model text are attacker-writable
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@"):
+        return "'" + v
+    return v
+
+
+def _csv_response(filename: str, header: list, rows: list) -> Response:
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(header)
+    w.writerows([[_no_formula(c) for c in row] for row in rows])
+    return Response(
+        buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/export/register.csv")
+def export_register(user: User = Depends(require_reviewer)):
+    rows = store.list_all()
+    return _csv_response(
+        "register.csv",
+        ["asset_id", "name", "type", "owner", "lifecycle", "status", "risk_tier", "risk_level", "source", "created_at", "open_findings"],
+        [[r.get("asset_id"), r.get("name"), r.get("type"), r.get("owner"), r.get("lifecycle"), r.get("status"),
+          r.get("risk_tier"), r.get("risk_level"), r.get("source"), r.get("created_at"), r.get("open_findings")] for r in rows],
+    )
+
+
+@app.get("/export/findings.csv")
+def export_findings(user: User = Depends(require_reviewer)):
+    rows = store.list_findings()
+    out = []
+    for r in rows:
+        f = r.get("finding") or {}
+        review = f.get("review") or {}
+        out.append([
+            f.get("finding_id"), r.get("asset_id"), r.get("asset_name"), r.get("risk_tier"),
+            f.get("inspector"), f.get("control_id"), f.get("severity"), f.get("status"),
+            f.get("plain"), f.get("remediation"),
+            review.get("verdict"), review.get("by"), review.get("at"), review.get("reason"),
+        ])
+    return _csv_response(
+        "findings.csv",
+        ["finding_id", "asset_id", "asset_name", "risk_tier", "inspector", "control_id", "severity", "status",
+         "finding", "remediation", "review_verdict", "review_by", "review_at", "review_reason"],
+        out,
+    )
+
+
+@app.get("/assets/{asset_id}/audit.csv")
+def export_audit(asset_id: str, user: User = Depends(require_reviewer)):
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    log = state.get("audit") or []
+    broken_at = audit.verify(log)
+    return _csv_response(
+        f"audit-{asset_id}.csv",
+        ["entry", "step", "at", "by", "prev_hash", "hash", "intact"],
+        [[i, e.get("step"), e.get("ts"), e.get("by"), e.get("prev"), e.get("hash"), broken_at == -1 or i < broken_at]
+         for i, e in enumerate(log)],
+    )
+
+
+class TierOverrideIn(BaseModel):
+    tier: str
+    reason: str
+
+
+@app.post("/assets/{asset_id}/tier")
+def override_tier(asset_id: str, payload: TierOverrideIn, user: User = Depends(require_reviewer)):
+    # the model mis-tiers roughly 1 in 4 assets; governance means a human can
+    # correct it, and the correction itself goes on the tamper-evident record
+    tier = payload.tier.strip().lower()
+    if tier not in RISK_TIERS:
+        raise HTTPException(status_code=422, detail=f"tier must be one of: {', '.join(RISK_TIERS)}")
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="a tier override needs a reason: say why the assigned tier is wrong")
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    # same fallback the asset page uses, so the recorded "from" matches what the screen showed
+    assessment_tier = (state.get("asset", {}).get("assessment") or {}).get("risk_tier") or ""
+    old = (state.get("risk_tier") or assessment_tier or "").lower() or "unassigned"
+    if old == tier:
+        raise HTTPException(status_code=409, detail=f"asset is already tier {tier}")
+    state["risk_tier"] = tier
+    state["tier_override"] = {  # latest override, in full, for the asset page
+        "from": old,
+        "to": tier,
+        "reason": reason,
+        "by": user.email,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    state["audit"] = audit.chain_as(
+        state.get("audit") or [],
+        [f"tier_override: {asset_id} {old} -> {tier} by {user.email} ({reason})"],
+        by=user.email,
+    )
+    store.save(state)
+    return {"asset_id": asset_id, "from": old, "to": tier, "by": user.email}
 
 
 FLAG_VERDICTS = ("approved", "overridden")
@@ -282,6 +424,11 @@ def decide_flag(finding_id: str, payload: FlagDecisionIn, user: User = Depends(r
         raise HTTPException(status_code=404, detail="finding not found on its asset")
     if finding.get("review"):
         raise HTTPException(status_code=409, detail="this flag has already been decided")
+    owner = (finding.get("owner") or "").lower()
+    if owner and owner in (user.email.lower(), user.email.lower().split("@")[0]):
+        # maker-checker: whoever owns the remediation work cannot also sign it off.
+        # matches both full-email and short-name owner conventions
+        raise HTTPException(status_code=403, detail="you own this finding's remediation; a different reviewer must decide it")
 
     finding["review"] = {
         "verdict": payload.verdict,
@@ -292,9 +439,10 @@ def decide_flag(finding_id: str, payload: FlagDecisionIn, user: User = Depends(r
     # an override closes the finding; an approval CONFIRMS it, so the remediation work stays open
     if payload.verdict == "overridden":
         finding["status"] = "dismissed"
-    state["audit"] = audit.chain(
+    state["audit"] = audit.chain_as(
         state.get("audit") or [],
         [f"reviewer_decision: {finding_id} {payload.verdict} by {user.email} ({reason or 'confirmed as raised'})"],
+        by=user.email,
     )
     store.save(state)
     return {
@@ -446,9 +594,10 @@ def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(requ
         notes.append(f"status {was} -> {new_status}")
 
     # the product's promise: remediation state cannot change without a trace
-    state["audit"] = audit.chain(
+    state["audit"] = audit.chain_as(
         state.get("audit") or [],
         [f"remediation: {finding_id} {'; '.join(notes)} by {user.email}"],
+        by=user.email,
     )
     store.save(state)
     return _finding_view({
@@ -516,9 +665,10 @@ async def upload_evidence(
             "at": row["created_at"].isoformat() if row["created_at"] else None,
         }
     ]
-    state["audit"] = audit.chain(
+    state["audit"] = audit.chain_as(
         state.get("audit") or [],
         [f"evidence: {finding_id} +{file.filename} ({len(data)} bytes) by {user.email}"],
+        by=user.email,
     )
     store.save(state)
     return {

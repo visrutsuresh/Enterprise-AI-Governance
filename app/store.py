@@ -36,6 +36,15 @@ def init_db():
         # fresh database. When this table needs a new column later, patch
         # existing databases right here with an ALTER TABLE ... IF NOT EXISTS.
 
+        # tiny key/value table so the active pack survives a restart: a system
+        # of record must not silently revert its own rulebook when it reboots
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS settings(
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+
         # Evidence is the ONE part of a finding that is not a fact about the
         # finding: it is a file somebody produced to prove the work was done.
         # It gets a real table rather than a slot in the asset blob, because
@@ -54,6 +63,19 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS evidence_finding_idx ON evidence (finding_id)")
+
+
+def set_setting(key: str, value: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+            (key, value),
+        )
+
+
+def all_settings() -> dict:
+    with _connect() as conn:
+        return dict(conn.execute("SELECT key, value FROM settings").fetchall())
 
 
 def save_pending(asset_id: str, name: str, source: str, created_at) -> None:

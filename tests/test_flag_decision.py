@@ -105,3 +105,11 @@ def test_the_verdict_joins_the_audit_chain_and_the_chain_stays_intact(client):
 def test_the_decision_is_persisted_not_just_held_in_memory(client):
     client.post("/flags/f-AI-0042-pol-1/decision", json={"verdict": "approved"})
     assert client.saved["state"]["asset"]["assessment"]["findings"][0]["review"]["verdict"] == "approved"
+
+
+def test_owner_cannot_decide_their_own_finding(client):
+    # maker-checker: the person doing the remediation must not be the person signing it off
+    finding(client)["owner"] = "reviewer@example.com"
+    r = client.post("/flags/f-AI-0042-pol-1/decision", json={"verdict": "approved"})
+    assert r.status_code == 403
+    assert finding(client).get("review") is None
