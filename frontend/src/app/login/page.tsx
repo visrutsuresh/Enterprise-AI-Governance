@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { EyeIcon } from "@/lib/icons";
 import { login } from "@/lib/useUser";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -50,14 +52,24 @@ export default function LoginPage() {
           className="w-full bg-transparent border-b border-[var(--line)] focus:border-[var(--accent)] outline-none py-2 mb-5"
         />
         <label className="label block mb-1">Password</label>
-        <input
-          type="password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full bg-transparent border-b border-[var(--line)] focus:border-[var(--accent)] outline-none py-2 mb-6"
-        />
+        <div className="flex items-center border-b border-[var(--line)] focus-within:border-[var(--accent)] mb-6">
+          <input
+            type={showPw ? "text" : "password"}
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full bg-transparent outline-none py-2"
+          />
+          <button
+            type="button"
+            aria-label={showPw ? "Hide password" : "Show password"}
+            onClick={() => setShowPw(!showPw)}
+            className="text-[var(--ink-soft)] hover:text-[var(--ink)] px-1"
+          >
+            <EyeIcon off={showPw} />
+          </button>
+        </div>
 
         {error && <p className="text-sm text-[var(--rust)] mb-4">{error}</p>}
 
