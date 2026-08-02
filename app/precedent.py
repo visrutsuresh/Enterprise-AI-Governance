@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import weaviate
@@ -8,14 +9,22 @@ from weaviate.classes.query import Filter, MetadataQuery
 COLLECTION = "Precedent"  # past governance decisions, searched by the inspectors (FR-10)
 RELEVANCE_FLOOR = 60  # below this, a hit is off-topic noise, not precedent
 
-WEAVIATE_PORT = 8082  # #6's own Weaviate (see docker-compose.yml), #4 holds 8081
-WEAVIATE_GRPC = 50053
+WEAVIATE_PORT = int(os.getenv("WEAVIATE_PORT", "8082"))  # #6's own local Weaviate (see docker-compose.yml), #4 holds 8081
+WEAVIATE_GRPC = int(os.getenv("WEAVIATE_GRPC", "50053"))
 
 _model = None  # loaded on first use so a plain import stays instant
 
 
 def _client():
-    return weaviate.connect_to_local(port=WEAVIATE_PORT, grpc_port=WEAVIATE_GRPC)
+    # WEAVIATE_URL + WEAVIATE_API_KEY switch to Weaviate Cloud (the deployed path)
+    url = os.getenv("WEAVIATE_URL")
+    if url:
+        from weaviate.classes.init import Auth
+
+        return weaviate.connect_to_weaviate_cloud(
+            cluster_url=url, auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY", ""))
+        )
+    return weaviate.connect_to_local(host=os.getenv("WEAVIATE_HOST", "localhost"), port=WEAVIATE_PORT, grpc_port=WEAVIATE_GRPC)
 
 
 def embed(text: str) -> list[float]:

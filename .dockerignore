@@ -1,0 +1,10 @@
+# never bake secrets or junk into the image. NOTE: do not exclude *.md broadly,
+# that stripped a runtime-read file out of #1's image and broke its pipeline.
+.env
+.env.*
+!.env.example
+.git
+.venv
+__pycache__
+frontend/
+docs/

@@ -7,12 +7,28 @@
 # Wipe this project's data only (never touches #1 or #4):  docker compose down -v
 name: enterprise-ai-governance
 services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # inside the compose network the DBs answer to their service names and container ports
+      DATABASE_URL: postgresql://governance:7d2f1c8ab94e5f60d3a8b17c4e92f051@postgres:5432/governance
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+      WEAVIATE_GRPC: 50051
+    depends_on:
+      - postgres
+      - weaviate
+    restart: unless-stopped
+
   weaviate:
     image: cr.weaviate.io/semitechnologies/weaviate:1.38.2
     ports:
       - "8082:8080"      # REST API (what we talk to from Python)
       - "50053:50051"    # gRPC API (faster channel the client also uses)
-    restart: on-failure:0
+    restart: unless-stopped
     environment:
       CLUSTER_HOSTNAME: 'node1'
       CLUSTER_ADVERTISE_ADDR: '127.0.0.1'
@@ -28,7 +44,7 @@ services:
     image: postgres:17
     ports:
       - "5435:5432"
-    restart: on-failure:0
+    restart: unless-stopped
     environment:
       POSTGRES_USER: governance
       POSTGRES_PASSWORD: 7d2f1c8ab94e5f60d3a8b17c4e92f051

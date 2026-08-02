@@ -15,8 +15,22 @@ SECRET = os.getenv("AUTH_SECRET", "")
 if not SECRET:
     raise RuntimeError("AUTH_SECRET missing from .env")
 
-# reuse the app's DATABASE_URL but through the async driver fastapi-users needs
-ASYNC_DB_URL = os.environ["DATABASE_URL"].replace("postgresql://", "postgresql+asyncpg://")
+# reuse the app's DATABASE_URL but through the async driver fastapi-users needs.
+# asyncpg does not understand libpq's sslmode/channel_binding params (Neon URLs
+# carry both) and crashes on them; translate to the one param it does speak.
+def _to_asyncpg_url(url: str) -> str:
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parts = urlsplit(url.replace("postgresql://", "postgresql+asyncpg://"))
+    params = dict(parse_qsl(parts.query))
+    needs_ssl = params.pop("sslmode", "") not in ("", "disable")
+    params.pop("channel_binding", None)
+    if needs_ssl:
+        params["ssl"] = "require"
+    return urlunsplit(parts._replace(query=urlencode(params)))
+
+
+ASYNC_DB_URL = _to_asyncpg_url(os.environ["DATABASE_URL"])
 
 
 class Base(DeclarativeBase):
@@ -51,7 +65,14 @@ async def get_user_manager(user_db=Depends(get_user_db)):
     yield UserManager(user_db)
 
 
-cookie_transport = CookieTransport(cookie_name="governance", cookie_max_age=60 * 60 * 24 * 7, cookie_secure=False)
+# local dev: secure off, samesite lax. Deployed (Vercel frontend + Render API are
+# different domains): COOKIE_SECURE=true and COOKIE_SAMESITE=none, or login silently fails.
+cookie_transport = CookieTransport(
+    cookie_name="governance",
+    cookie_max_age=60 * 60 * 24 * 7,
+    cookie_secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+    cookie_samesite=os.getenv("COOKIE_SAMESITE", "lax"),
+)
 
 
 def get_jwt_strategy() -> JWTStrategy:

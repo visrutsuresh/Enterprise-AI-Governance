@@ -5,14 +5,15 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timezone
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app import audit, precedent, store, sweep
+from app import audit, precedent, ratelimit, store, sweep
 from app.agents import approval_workflow_agent, executive_advisory_agent
 from app.graph import graph, initial_state
 from app.schemas import UserCreate, UserUpdate
@@ -41,13 +42,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Enterprise AI Governance API", lifespan=lifespan)
 
+# comma-separated list, e.g. "https://governance.vercel.app,http://localhost:3000"
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _login_rate_limit(request: Request, call_next):
+    # no public registration here, but the login door still gets a per-IP lock
+    if request.method == "POST" and request.url.path == "/auth/login":
+        try:
+            ratelimit.check(f"login:{ratelimit.client_ip(request)}", 10, 300)
+        except HTTPException as e:
+            return JSONResponse({"detail": e.detail}, status_code=e.status_code)
+    return await call_next(request)
+
 
 app.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth", tags=["auth"])
 # no register router on purpose: accounts exist only when an admin creates them (see the /users routes)
@@ -121,6 +137,7 @@ def _process(asset_id: str, description: str):
 
 @app.post("/assets")
 def register_asset(payload: RegisterIn, background: BackgroundTasks, user: User = Depends(require_reviewer)):
+    ratelimit.check(f"assets:{user.email}", 10, 86_400)  # each registration runs the paid inspector pipeline
     if not payload.description.strip():
         raise HTTPException(status_code=400, detail="describe the AI system to register")
     asset_id = f"AI-{uuid.uuid4().hex[:8]}"
@@ -202,6 +219,7 @@ class SweepIn(BaseModel):
 
 @app.post("/sweep/run")
 def run_sweep(payload: SweepIn | None = None, user: User = Depends(require_admin)):
+    ratelimit.check("sweep:global", 2, 3600)  # up to 10 serial model calls per run; twice an hour is plenty
     # demo endpoint standing in for the nightly cron (plan section 5: a real
     # scheduler adds ops with no demo value). Synchronous on purpose: the demo
     # runs it pre-show and wants the report back in the response.

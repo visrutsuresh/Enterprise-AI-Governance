@@ -1,4 +1,4 @@
-const BASE = "http://localhost:8000"; // matches #1 and #4; run one app at a time
+const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000"; // local default matches #1 and #4; run one app at a time
 
 export async function api(path: string, init: RequestInit = {}) {
   const res = await fetch(`${BASE}${path}`, {
