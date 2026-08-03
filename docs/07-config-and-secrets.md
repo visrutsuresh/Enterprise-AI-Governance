@@ -19,6 +19,8 @@
 | Active policy pack | no | Which policy pack is live; switched through the API rather than by hand |
 | Active framework pack | no | Which regulatory framework pack is live |
 | `BRAND_NAME`, `BRAND_TAGLINE` | no | Branding |
+| `CORS_ORIGINS` | no | Comma-separated origins the browser may call the API from, exact origin and no trailing slash. Defaults to `http://localhost:3000,http://localhost:3001` |
+| `COOKIE_SECURE`, `COOKIE_SAMESITE` | no | Default to `false` and `lax`, which is what local development wants. Deployed, with the front end and the API on different domains, they must be `true` and `none` or the session cookie is silently dropped and login appears to do nothing |
 | `FASTEMBED_CACHE_PATH` | no | Pinned inside the repository, after a temporary-directory embedding cache corrupted itself |
 
 **The lane variables are shared with the sibling contract-review system**, which points at the same single deployment. A blank pair here is a known and confusing failure: an assessment dies immediately with an invalid-address error, before the GPU is ever reached, so it costs nothing but looks alarming.

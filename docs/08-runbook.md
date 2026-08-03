@@ -28,11 +28,24 @@ export NO_PROXY=127.0.0.1,localhost no_grpc_proxy=127.0.0.1,localhost
 
 All three are needed on a fresh machine and after any `docker compose down -v`. Embeddings are computed locally, so seeding costs nothing.
 
+### Rotating the seeded credentials
+
+The seeded passwords are development defaults and **this repository is public**, so anybody can read them. They are fine on a laptop and unacceptable on anything reachable from the internet.
+
+To retire them, supply an override and re-run the same seeder against the deployed database:
+
+```bash
+SEED_ADMIN_PASSWORD=... SEED_REVIEWER_PASSWORD=... DATABASE_URL=<the deployed database> uv run python seed_users.py
+```
+
+Re-running with an override **rotates** an account that already exists: it replaces the stored hash and keeps the role. Accounts are matched by address, so nothing is duplicated and nothing else is disturbed. Run it with no overrides and it prints a reminder that the published defaults are in use.
+
 ## 3. Health checks
 
 | Check | How | Healthy answer |
 |---|---|---|
 | API alive | `GET /health` | ok |
+| Dependencies alive | `GET /healthz` | `postgres` and `weaviate` both `ok`, `status` `ok`. `degraded` names which one is down |
 | Estate loaded | The tower home | 185 asset cards |
 | Sign-in | A seeded account | Reaches the tower |
 | Model lane warm | A short probe | An answer in about a minute from cold |

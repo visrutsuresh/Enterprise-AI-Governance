@@ -20,7 +20,7 @@ from app.users import require_reviewer
 
 
 class FakeUser:
-    email = "[REDACTED_EMAIL_ADDRESS_4]"
+    email = "reviewer@example.com"
     role = "reviewer"
 
 
@@ -85,7 +85,7 @@ def test_upload_stores_the_file_and_mirrors_it_onto_the_finding(client):
     r = client.post("/flags/f-AI-0042-pol-1/evidence", files=png())
     assert r.status_code == 200
     assert r.json()["filename"] == "proof.png"
-    assert r.json()["uploaded_by"] == "[REDACTED_EMAIL_ADDRESS_4]"
+    assert r.json()["uploaded_by"] == "reviewer@example.com"
     # the bytes went to the table
     assert len(client.table) == 1
     # and the metadata is mirrored onto the finding, which is what the board reads
@@ -102,7 +102,7 @@ def test_upload_joins_the_audit_chain_and_leaves_it_intact(client):
     assert len(log) == before + 1
     assert "evidence:" in log[-1]["step"]
     assert "proof.png" in log[-1]["step"]
-    assert "[REDACTED_EMAIL_ADDRESS_4]" in log[-1]["step"]
+    assert "reviewer@example.com" in log[-1]["step"]
     assert audit.verify(log) == -1  # the whole chain still hashes
 
 

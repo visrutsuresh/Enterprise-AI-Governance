@@ -125,6 +125,29 @@ def health_alias():
     return {"status": "ok", "product": "governance"}
 
 
+@app.get("/healthz")
+def healthz():
+    # the honest health check: touches each dependency instead of just answering.
+    # / and /health stay instant for uptime pings; this one is for humans and deploy
+    # gates. Named to match the sibling ticket system so all three answer the same way.
+    out = {"api": "ok"}
+    # up/down only, no exception text: this route is unauthenticated and driver
+    # errors would leak host and user strings to anyone who asks
+    try:
+        with store._connect() as conn:
+            conn.execute("SELECT 1")
+        out["postgres"] = "ok"
+    except Exception:
+        out["postgres"] = "down"
+    try:
+        precedent._client().close()
+        out["weaviate"] = "ok"
+    except Exception:
+        out["weaviate"] = "down"
+    out["status"] = "ok" if out["postgres"] == "ok" and out["weaviate"] == "ok" else "degraded"
+    return out
+
+
 @app.get("/config")
 def brand_config():
     return {
