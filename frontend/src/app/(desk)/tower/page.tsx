@@ -424,7 +424,11 @@ export default function Tower() {
           {shown.length === 0 && (
             <tr>
               <td colSpan={7} className="py-4 text-[var(--ink-soft)]">
-                No assets match. Clear the search or filters to see the full register.
+                {/* on a fresh estate the register is empty because nothing has been
+                    registered yet, so do not blame a filter nobody set */}
+                {rows.length === 0
+                  ? "No AI systems registered yet. Register the first one above and the assessment runs straight away."
+                  : "No assets match. Clear the search or filters to see the full register."}
               </td>
             </tr>
           )}

@@ -461,7 +461,12 @@ export default function Remediation() {
           ))}
           {board.findings.length === 0 && (
             <p className="text-[var(--ink-soft)] p-6 text-[13px]">
-              No findings match that filter.
+              {/* this is the ALL view, so the only thing that can be hiding rows
+                  is the team selector. With no team chosen the board is genuinely
+                  empty, and blaming a filter nobody set would send them hunting */}
+              {team
+                ? "No findings for that team. Clear the team filter to see the whole board."
+                : "No findings yet. They appear here once an assessment flags something."}
             </p>
           )}
         </div>

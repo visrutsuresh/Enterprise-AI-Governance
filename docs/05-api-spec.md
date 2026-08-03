@@ -4,11 +4,15 @@
 
 ## 1. Authentication and roles
 
-Signed cookie sessions. Two roles: `reviewer` and `admin`. **No open signup.** Every endpoint below except health and configuration requires a signed-in account.
+Signed cookie sessions. Two roles: `reviewer` and `admin`. **No open signup.** Every endpoint below except health, configuration and the two first-run setup routes requires a signed-in account.
+
+The one exception to "an administrator creates every account" is the **first-run bootstrap**. A freshly installed system has no accounts, therefore no administrator, therefore no way to create the first one. `GET /auth/needs-setup` reports that state and `POST /auth/bootstrap` closes it by creating the founding administrator. The bootstrap route refuses with 403 the moment any account exists, so the door opens once and never again. `seed_users.py` remains the scripted route to the same place for a development machine.
 
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/auth/login` | Form credentials, returns a session cookie |
+| GET | `/auth/needs-setup` | `{"needs_setup": true}` only while the system holds zero accounts |
+| POST | `/auth/bootstrap` | Creates the founding administrator from email and password. 403 once any account exists, 409 on a duplicate address |
 | POST | `/auth/logout` | Ends the session |
 | GET | `/users/me` | The current account and role |
 

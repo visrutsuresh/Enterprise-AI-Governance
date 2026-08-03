@@ -12,8 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_users.exceptions import UserAlreadyExists
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import func, select
 
 from app import audit, precedent, ratelimit, store, sweep
 from app.agents import approval_workflow_agent, executive_advisory_agent
@@ -73,7 +73,45 @@ async def _login_rate_limit(request: Request, call_next):
 
 
 app.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth", tags=["auth"])
-# no register router on purpose: accounts exist only when an admin creates them (see the /users routes)
+# no register router on purpose: accounts exist only when an admin creates them (see the /users routes).
+# the ONE exception is the first-run bootstrap below, or a fresh install would have
+# no admin and therefore no way to create the first account.
+
+
+@app.get("/auth/needs-setup")
+async def needs_setup():
+    # the login page asks this to decide whether to show the one-time setup form
+    async with session_maker() as session:
+        n = (await session.execute(select(func.count()).select_from(User))).scalar_one()
+    return {"needs_setup": n == 0}
+
+
+class BootstrapIn(BaseModel):
+    # EmailStr, not str: UserCreate validates the address further down, and a plain
+    # str would let that ValidationError escape the handler as a 500. The founding
+    # admin mistyping their own address is the likeliest error on this screen, and
+    # it must read as "that is not a valid address", not "Internal Server Error".
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=200)
+
+
+@app.post("/auth/bootstrap")
+async def bootstrap_admin(payload: BootstrapIn):
+    # first-run only: creates the founding admin while the system has ZERO
+    # accounts, then this door closes forever. Single worker makes the
+    # count-then-create window a non-issue in practice.
+    async with session_maker() as session:
+        n = (await session.execute(select(func.count()).select_from(User))).scalar_one()
+        if n:
+            raise HTTPException(status_code=403, detail="setup is already complete; ask an administrator for an account")
+        db = SQLAlchemyUserDatabase(session, User)
+        mgr = UserManager(db)
+        try:
+            created = await mgr.create(UserCreate(email=payload.email, password=payload.password, role="admin"))
+        except UserAlreadyExists:
+            raise HTTPException(status_code=409, detail="that email is already registered")
+        created = await db.update(created, {"role": "admin"})
+        return {"id": str(created.id), "email": created.email, "role": created.role}
 
 
 @app.get("/")

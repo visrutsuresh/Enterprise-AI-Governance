@@ -32,7 +32,24 @@ export default function DeskLayout({
   }
 
   if (loading || !user)
-    return <main className="min-h-[100dvh] bg-[var(--parchment)]" />;
+    // never a silent blank page: a sleeping free-tier backend can take up to a
+    // minute to wake, and this is what the visitor stares at meanwhile
+    return (
+      <main className="min-h-[100dvh] bg-[var(--parchment)] flex items-center justify-center">
+        <div className="text-center">
+          <div
+            className="text-[24px] font-extrabold animate-pulse"
+            style={{ fontFamily: "var(--font-cabinet)" }}
+          >
+            {brand.toUpperCase()}
+            <span className="text-[var(--accent)]">.</span>
+          </div>
+          <p className="label text-[var(--ink-soft)] mt-3">
+            WAKING THE SERVICE UP · THIS CAN TAKE A MINUTE
+          </p>
+        </div>
+      </main>
+    );
   const onTower = pathname === "/tower" || pathname.startsWith("/assets");
   const onWork = pathname === "/remediation";
   const onPeople = pathname === "/admin";

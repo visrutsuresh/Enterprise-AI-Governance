@@ -22,7 +22,7 @@ export NO_PROXY=127.0.0.1,localhost no_grpc_proxy=127.0.0.1,localhost
 
 | Command | Effect |
 |---|---|
-| `uv run python seed_users.py` | The administrator and reviewer accounts |
+| `uv run python seed_users.py` | The administrator and reviewer accounts. Optional: on a system with no accounts the sign-in screen offers a one-time setup form that creates the founding administrator instead |
 | The estate seed | 185 synthetic assets, with deliberately empty audit chains |
 | The precedent seed | Fills the precedent collection |
 

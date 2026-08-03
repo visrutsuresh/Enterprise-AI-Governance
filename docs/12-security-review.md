@@ -22,6 +22,7 @@ A list of every unpatched governance gap in an organisation is a target in its o
 | # | Threat | Control today | Residual risk |
 |---|---|---|---|
 | 1 | An outsider creates an account and reads the estate | **No open signup**; an administrator creates every account | The administrator account is a single point of trust |
+| 1a | An outsider claims the founding administrator through the first-run setup route | `POST /auth/bootstrap` is unauthenticated by necessity, but it counts the accounts first and refuses with 403 the moment any exists. On a seeded or running system it is already closed | **A system that is deployed but never seeded is claimable by the first visitor.** Whoever installs it must complete setup before publishing the URL. The same applies to the sibling contract-review system |
 | 2 | Password guessing | Hashed passwords | **No rate limiting or lockout** |
 | 3 | Session theft | Signed cookie with a secret from the environment | Not marked secure, because the demonstration runs over plain HTTP |
 | 4 | A reviewer quietly weakens the rules by editing a pack | Packs are files on disk; the active pack is recorded and every finding pins to a control id | **Nothing signs or version-controls the packs at runtime.** This is the most product-specific weakness: the rulebook is the trust anchor and it is a writable file |

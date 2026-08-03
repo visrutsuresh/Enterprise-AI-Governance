@@ -6,6 +6,8 @@
 
 There is no self-service signup. An administrator creates your account. Sign in and you land on the tower.
 
+**The very first time the system is ever started**, there are no accounts at all, so there is nobody to create yours. The sign-in screen notices this and turns itself into a one-time setup form: fill in an email address and a password, and it creates the founding administrator. That administrator then creates everyone else. Once a single account exists this screen never appears again, and the setup route refuses anyone who tries it later. On a development machine `seed_users.py` gets you to the same place.
+
 ## 2. The estate
 
 The tower lists every AI asset the company has registered: what it is, who owns it, where it is in its lifecycle, its risk level, its regulatory tier, and how many findings are open against it.

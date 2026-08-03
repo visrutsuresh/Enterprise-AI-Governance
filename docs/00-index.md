@@ -24,4 +24,4 @@ Version 1, 2026-07-28. Written against the code as it stands, not as planned.
 | 18 | [Release Notes](18-release-notes.md) | What changed, in order, and what it broke |
 | 19 | [Handover](19-handover.md) | Everything the next owner needs |
 
-Also in this folder: the client requirement PDF, and `demo-script.md` for the four-beat walkthrough.
+Also in this folder: the client requirement PDF, and [demo-script.md](demo-script.md) for the four-beat walkthrough.
