@@ -327,10 +327,37 @@ def sweep_status(user: User = Depends(require_reviewer)):
     return _SWEEP_STATE
 
 
-def _find_finding(finding_id: str):
+def _asset_id_of(finding_id: str) -> str:
     # finding ids look like f-AI-0042-pol-1: the asset id is the middle piece
     core = finding_id.removeprefix("f-")
-    asset_id = core.rsplit("-", 2)[0] if core.count("-") >= 2 else core
+    return core.rsplit("-", 2)[0] if core.count("-") >= 2 else core
+
+
+def _mutate_finding(finding_id: str, change):
+    """Read-modify-write ONE finding with its asset row locked for the duration.
+
+    The read-then-save shape this replaces lost data: two reviewers on the same
+    asset both read the blob, changed different findings, and both wrote, so one
+    person's change and their audit entry vanished while the chain still verified
+    as intact. `change(state, assessment, finding)` mutates in place; raising
+    inside it rolls the whole thing back and writes nothing.
+    """
+    def apply(state):
+        assessment = (state.get("asset", {}).get("assessment") or {})
+        finding = next(
+            (f for f in assessment.get("findings", []) if f.get("finding_id") == finding_id), None)
+        if finding is None:
+            raise HTTPException(status_code=404, detail="finding not found on its asset")
+        return change(state, assessment, finding)
+
+    out = store.mutate(_asset_id_of(finding_id), apply)
+    if out is None:
+        raise HTTPException(status_code=404, detail="no asset for that finding id")
+    return out
+
+
+def _find_finding(finding_id: str):
+    asset_id = _asset_id_of(finding_id)
     state = store.get(asset_id)
     if state is None:
         return None, None, None
@@ -675,59 +702,56 @@ def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(requ
         except ValueError:
             raise HTTPException(status_code=422, detail="due_at must be a date like 2026-07-31")
 
-    state, _assessment, finding = _find_finding(finding_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no asset for that finding id")
-    if finding is None:
-        raise HTTPException(status_code=404, detail="finding not found on its asset")
-    if (finding.get("status") or "open").lower() == "dismissed":
-        # a dismissal is a recorded judgement with a reason attached. Quietly
-        # reviving it by dragging a card would undermine the whole audit story.
-        raise HTTPException(status_code=409,
-                            detail="this finding was dismissed by an override; it cannot be moved")
+    def apply(state, _assessment, finding):
+        if (finding.get("status") or "open").lower() == "dismissed":
+            # a dismissal is a recorded judgement with a reason attached. Quietly
+            # reviving it by dragging a card would undermine the whole audit story.
+            raise HTTPException(status_code=409,
+                                detail="this finding was dismissed by an override; it cannot be moved")
 
-    notes = []
-    if "owner" in sent:
-        owner = (payload.owner or "").strip() or None
-        finding["owner"] = owner
-        notes.append(f"owner set to {owner}" if owner else "owner cleared")
-    if "due_at" in sent:
-        due = (payload.due_at or "").strip() or None
-        finding["due_at"] = due
-        notes.append(f"due {due}" if due else "due date cleared")
-    elif "owner" in sent and finding.get("owner") and not finding.get("due_at"):
-        # assigning without a date used to leave the card with no deadline, which is
-        # how a tracker rots. Severity picks the SLA; the reviewer can still edit it.
-        days = SLA_DAYS.get((finding.get("severity") or "low").lower(), 90)
-        finding["due_at"] = (date.today() + timedelta(days=days)).isoformat()
-        notes.append(f"due {finding['due_at']} (default for {finding.get('severity')})")
-    if "routed_to" in sent:
-        team = (payload.routed_to or "").strip().lower() or None
-        finding["routed_to"] = team
-        notes.append(f"routed to {team}" if team else "routing cleared")
-    if "severity" in sent:
-        was_sev = finding.get("severity")
-        finding["severity"] = payload.severity.lower()
-        notes.append(f"severity {was_sev} -> {finding['severity']}")
-    if new_status is not None:
-        was = (finding.get("status") or "open").lower()
-        finding["status"] = new_status
-        notes.append(f"status {was} -> {new_status}")
+        notes = []
+        if "owner" in sent:
+            owner = (payload.owner or "").strip() or None
+            finding["owner"] = owner
+            notes.append(f"owner set to {owner}" if owner else "owner cleared")
+        if "due_at" in sent:
+            due = (payload.due_at or "").strip() or None
+            finding["due_at"] = due
+            notes.append(f"due {due}" if due else "due date cleared")
+        elif "owner" in sent and finding.get("owner") and not finding.get("due_at"):
+            # assigning without a date used to leave the card with no deadline, which
+            # is how a tracker rots. Severity picks the SLA; it stays editable.
+            days = SLA_DAYS.get((finding.get("severity") or "low").lower(), 90)
+            finding["due_at"] = (date.today() + timedelta(days=days)).isoformat()
+            notes.append(f"due {finding['due_at']} (default for {finding.get('severity')})")
+        if "routed_to" in sent:
+            team = (payload.routed_to or "").strip().lower() or None
+            finding["routed_to"] = team
+            notes.append(f"routed to {team}" if team else "routing cleared")
+        if "severity" in sent:
+            was_sev = finding.get("severity")
+            finding["severity"] = payload.severity.lower()
+            notes.append(f"severity {was_sev} -> {finding['severity']}")
+        if new_status is not None:
+            was = (finding.get("status") or "open").lower()
+            finding["status"] = new_status
+            notes.append(f"status {was} -> {new_status}")
 
-    # the product's promise: remediation state cannot change without a trace
-    state["audit"] = audit.chain_as(
-        state.get("audit") or [],
-        [f"remediation: {finding_id} {'; '.join(notes)} by {user.email}"],
-        by=user.email,
-    )
-    store.save(state)
-    return _finding_view({
-        "asset_id": state["asset_id"],
-        "asset_name": state.get("asset", {}).get("name"),
-        "risk_tier": state.get("asset", {}).get("risk_tier"),
-        "risk_level": None,
-        "finding": finding,
-    })
+        # the product's promise: remediation state cannot change without a trace
+        state["audit"] = audit.chain_as(
+            state.get("audit") or [],
+            [f"remediation: {finding_id} {'; '.join(notes)} by {user.email}"],
+            by=user.email,
+        )
+        return _finding_view({
+            "asset_id": state["asset_id"],
+            "asset_name": state.get("asset", {}).get("name"),
+            "risk_tier": state.get("asset", {}).get("risk_tier"),
+            "risk_level": None,
+            "finding": finding,
+        })
+
+    return _mutate_finding(finding_id, apply)
 
 
 class ManualFindingIn(BaseModel):

@@ -148,6 +148,63 @@ def save(state: dict) -> None:
         )
 
 
+def mutate(asset_id: str, change):
+    """Read, change, and write back ONE asset inside a single transaction with the
+    row locked.
+
+    Why this exists. Every handler used to do get() -> mutate in memory -> save(),
+    and save() rewrites the whole JSONB blob. Two reviewers working the same asset
+    (one dragging a card, one attaching evidence) both read the same blob, changed
+    different parts of it, and both wrote. Last writer won, and the other person's
+    change AND their audit-chain entry disappeared. The worst part: verify() still
+    reported `intact: true`, because a chain with entries missing from the end is
+    internally consistent. A silently-lost audit entry is the one failure this
+    product cannot have.
+
+    `change(state)` mutates the state in place and returns whatever the caller
+    wants back. If it raises (a 409, a 422), the transaction rolls back and nothing
+    is written. Returns None if the asset does not exist.
+    """
+    with _connect() as conn:  # commits on clean exit, rolls back on exception
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            "SELECT state, status, stage, created_at FROM assets WHERE asset_id = %s FOR UPDATE",
+            (asset_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        state = row["state"]
+        # same column-over-blob stamping get() does: the columns are fresher
+        # while the graph is running
+        state["status"] = row["status"]
+        state["stage"] = row["stage"]
+        state["created_at"] = row["created_at"]
+
+        result = change(state)
+
+        asset = state.get("asset") or {}
+        cur.execute(
+            """UPDATE assets SET name=%s, type=%s, owner=%s, lifecycle=%s, status=%s,
+                                 stage=%s, risk_level=%s, risk_tier=%s, source=%s, state=%s
+               WHERE asset_id=%s""",
+            (
+                asset.get("name"),
+                asset.get("type"),
+                asset.get("owner"),
+                asset.get("lifecycle"),
+                state.get("status"),
+                state.get("stage"),
+                (state.get("risk") or {}).get("level"),
+                (state.get("risk_tier") or "").lower() or None,
+                asset.get("source"),
+                Jsonb(jsonable_encoder(state)),
+                asset_id,
+            ),
+        )
+        return result
+
+
 def get(asset_id: str) -> dict | None:
     with _connect() as conn:
         cur = conn.cursor(row_factory=dict_row)

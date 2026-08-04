@@ -23,12 +23,11 @@ export type RailState = {
   };
 };
 
-const TIER_COLORS: Record<string, string> = {
-  unacceptable: "#a63d2a",
-  high: "#c95a4a",
-  limited: "#a0772d",
-  minimal: "#5f9a5c",
-};
+// no hue in this skin: a value that is bad news is set in heavier type, and
+// the label beside it already says what it is. "pending" is deliberately NOT
+// treated as good news, which the old green did.
+const ALARM = "font-extrabold";
+const CALM = "font-semibold";
 
 export default function EffectRail({
   state,
@@ -76,7 +75,7 @@ export default function EffectRail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const row = (k: string, label: string, value: React.ReactNode, colour?: string) => (
+  const row = (k: string, label: string, value: React.ReactNode, alarm?: boolean) => (
     <div
       key={k}
       className="flex justify-between items-baseline py-2.5 border-t border-[var(--line)] first:border-t-0 px-2 -mx-2 rounded transition-colors"
@@ -84,7 +83,10 @@ export default function EffectRail({
     >
       <span className="text-[12.5px] text-[var(--ink-soft)]">{label}</span>
       <span className="text-right">
-        <span className="text-[15px] font-bold" style={{ fontFamily: "var(--font-cabinet)", color: colour }}>
+        <span
+          className={`text-[15px] ${alarm ? ALARM : CALM}`}
+          style={{ fontFamily: "var(--font-cabinet)" }}
+        >
           {value}
         </span>
         {was[k] !== undefined && (
@@ -103,11 +105,11 @@ export default function EffectRail({
       <div className="font-array text-[10px] tracking-[0.16em] uppercase text-[var(--ink-soft)] mb-3">
         what the record adds up to
       </div>
-      {row("tier", "EU AI Act tier", snap.tier, TIER_COLORS[tier])}
-      {row("decision", "decision", snap.decision, snap.decision === "flagged" ? "var(--rust)" : "var(--olive)")}
+      {row("tier", "EU AI Act tier", snap.tier, tier === "high" || tier === "unacceptable")}
+      {row("decision", "decision", snap.decision, snap.decision === "flagged")}
       {row("findings", "open findings", snap.findings)}
-      {row("serious", "of them serious", snap.serious, snap.serious ? "var(--rust)" : "var(--olive)")}
-      {metric && row(metric.short, metric.short, snap[metric.short], metric.pass ? "var(--olive)" : "var(--rust)")}
+      {row("serious", "of them serious", snap.serious, Boolean(snap.serious))}
+      {metric && row(metric.short, metric.short, snap[metric.short], !metric.pass)}
       {row("corrected", "fields corrected", snap.corrected)}
 
       <div className="mt-7">

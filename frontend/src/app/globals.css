@@ -16,30 +16,55 @@
    that should read as pushed IN (inputs, a progress trough).
    ============================================================ */
 
-:root {
-  --parchment: #1d2128; /* the ground */
-  --paper: #2a2f38; /* panels float one step lighter */
-  --ink: #e8eaee; /* main text */
-  --ink-soft: #97a0ac; /* secondary text */
-  --line: rgba(255, 255, 255, 0.07); /* hairline separators */
-  --accent: #74bdb6; /* luminous teal */
-  --accent-deep: #9adcd5; /* hover goes BRIGHTER in the dark */
-  --accent-wash: rgba(116, 189, 182, 0.12);
-  --rust: #d4805c; /* severity: serious */
-  --rust-wash: rgba(212, 128, 92, 0.14);
-  --olive: #9db36c; /* good, decided */
-  --olive-wash: rgba(157, 179, 108, 0.16);
-  --amber: #d9ad55; /* severity: worth a look */
-  --amber-wash: rgba(217, 173, 85, 0.14);
-  --attn-bg: rgba(217, 173, 85, 0.14); /* needs-a-person note */
-  --attn-ink: #d9ad55;
+/* SKIN: EDITORIAL WHITE (chosen 2026-08-04, replaces the dark neumorph clay).
 
-  /* depth is one soft downward shadow now (A3 soft elevation),
-     not the old neumorph light/dark pair */
-  --lift: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --lift-hi: 0 12px 32px rgba(0, 0, 0, 0.45);
-  --press: inset 0 2px 6px rgba(0, 0, 0, 0.3);
-  --radius: 16px;
+   The product is a RECORD, so it should read like one: white ground, black ink,
+   hairline rules, generous space, one typeface doing the work.
+
+   THE LOAD-BEARING CHANGE. Colour used to carry severity (rust serious, amber
+   medium, olive good). In a black-and-white skin that encoding disappears, so
+   severity now rides on FILL WEIGHT instead:
+       serious = solid black chip, white text
+       medium  = outlined chip
+       minor   = no chip at all, it recedes
+   Weight survives a bad projector, a greyscale print and a colour-blind reader.
+   Hue never did any of that, so this is an upgrade, not a repaint.
+
+   OPACITY DISCIPLINE. There is a fixed four-step ink scale below and nothing
+   else. No ad-hoc rgba text, no opacity-60 on a paragraph. Every shade of grey
+   on screen is one of these four, which is what makes the page look deliberate. */
+:root {
+  --parchment: #ffffff; /* the ground */
+  --paper: #ffffff; /* panels sit ON the ground, separated by a rule not a fill */
+  --wash: #f6f6f5; /* the only tinted surface: hover, and a bound cell */
+
+  --ink: #111111; /* headings, values, anything load-bearing */
+  --ink-soft: #5a5a5a; /* supporting prose */
+  --ink-dim: #8e8e8e; /* labels, units, meta */
+  --line: #e2e2e2; /* hairline separators */
+  --line-strong: #111111; /* a rule that means "this is a boundary" */
+
+  /* there is no accent hue any more: emphasis is ink, weight and space */
+  --accent: #111111;
+  --accent-deep: #000000;
+  --accent-wash: #f0f0ef;
+
+  /* kept as names so no page file breaks, but all of them are now ink.
+     Severity is expressed by .sev-hi / .sev-mid / .sev-low below. */
+  --rust: #111111;
+  --rust-wash: #ececeb;
+  --olive: #111111;
+  --olive-wash: #f0f0ef;
+  --amber: #111111;
+  --amber-wash: #f0f0ef;
+  --attn-bg: #f0f0ef;
+  --attn-ink: #111111;
+
+  /* depth is a hairline, never a shadow. A drop shadow on white reads as grime. */
+  --lift: none;
+  --lift-hi: none;
+  --press: none;
+  --radius: 3px;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --background: var(--parchment);
@@ -80,33 +105,51 @@ h3 {
 
 .panel {
   background: var(--paper);
-  border: none;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--lift);
-  transition:
-    box-shadow 0.3s var(--ease),
-    transform 0.3s var(--ease);
+  box-shadow: none;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
 }
 .panel.click {
   cursor: pointer;
 }
 .panel.click:hover {
-  box-shadow: var(--lift-hi);
-  transform: translateY(-2px);
+  border-color: var(--ink);
+  background: var(--wash);
 }
 .panel.click:active {
-  box-shadow: var(--press);
-  transform: none;
+  background: var(--wash);
 }
 
-/* pressed-in surfaces: form fields, the diff box, the progress trough */
+/* form fields: a ruled line to write on, not a pressed dent */
 .field {
-  background: var(--paper);
-  border: none;
-  border-radius: 10px;
-  box-shadow: var(--press);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px 10px;
   color: var(--ink);
   outline: none;
+  transition: border-color 0.15s var(--ease);
+}
+.field:hover {
+  border-color: #c9c9c9;
+}
+.field:focus,
+.field:focus-visible {
+  border-color: var(--ink);
+  outline: none;
+}
+.field::placeholder {
+  color: var(--ink-dim);
+}
+
+/* KEYBOARD VISIBILITY. The old skin set outline:none app-wide and defined no
+   focus style anywhere, so a keyboard user genuinely could not see where they
+   were. One rule, everything. */
+:where(a, button, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ---------- small shared pieces ---------- */
@@ -123,32 +166,66 @@ h3 {
   font-family: var(--font-array), monospace;
   font-size: 10.5px;
   letter-spacing: 0.12em;
-  padding: 5px 10px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
   text-transform: uppercase;
   white-space: nowrap;
   justify-self: start;
 }
 .badge.working {
-  background: var(--accent-wash);
-  color: var(--accent-deep);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .badge.review {
-  background: var(--rust-wash);
-  color: var(--rust);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 .badge.done {
-  background: var(--olive-wash);
-  color: var(--olive);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .badge.attn {
-  background: var(--attn-bg);
-  color: var(--attn-ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 .badge.err {
-  background: var(--rust-wash);
-  color: var(--rust);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
+
+/* THE SEVERITY SCALE. Three weights, no hue. Anything showing how bad
+   something is uses one of these, so the whole app agrees. */
+.sev {
+  font-family: var(--font-array), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1.5px solid var(--ink);
+  white-space: nowrap;
+}
+.sev-hi {
+  background: var(--ink);
+  color: #fff;
+} /* serious: the heaviest thing on the page */
+.sev-mid {
+  background: transparent;
+  color: var(--ink);
+} /* medium: present, quieter */
+.sev-low {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-dim);
+  padding-left: 0;
+  font-weight: 600;
+} /* minor: recedes */
 
 .pulse {
   width: 8px;
@@ -540,17 +617,39 @@ h3 {
 
 /* #6 addition: the one shared button */
 .btn {
-  padding: 0.45rem 0.9rem;
-  border-radius: 0.5rem;
-  background: var(--accent);
-  color: #1c2126;
+  padding: 6px 13px;
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 600;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
-.btn:hover { background: var(--accent-deep); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:hover:not(:disabled) { background: var(--ink); color: #fff; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* the quiet sibling: used where a row has three or four choices and three or
-   four filled teal buttons would shout */
-.btn.ghost { background: transparent; color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--line); }
-.btn.ghost:hover { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+   four equally-weighted buttons would shout */
+.btn.ghost { border-color: var(--line); color: var(--ink-soft); }
+.btn.ghost:hover:not(:disabled) { border-color: var(--ink); background: var(--ink); color: #fff; }
+
+/* a button that is working. The app makes 60-to-140-second model calls and used
+   to give no signal at all beyond a slightly dimmer button. */
+.btn[data-busy="true"] {
+  position: relative;
+  color: transparent;
+}
+.btn[data-busy="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--ink);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

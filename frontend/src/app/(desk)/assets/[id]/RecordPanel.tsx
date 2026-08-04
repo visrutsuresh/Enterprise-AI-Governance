@@ -28,6 +28,13 @@ const FIELDS: Field[] = [
   { key: "last_bias_test_at", label: "last bias test", kind: "date" },
 ];
 
+// what a field held before a human corrected it, said in words rather than JSON
+function wasLabel(was: unknown): string {
+  if (was === null || was === undefined || was === "") return "blank";
+  if (Array.isArray(was)) return was.length ? was.join(", ") : "blank";
+  return String(was);
+}
+
 export default function RecordPanel({
   assetId,
   asset,
@@ -163,8 +170,12 @@ export default function RecordPanel({
               )}
 
               {src && (
-                <div className="text-[10px] font-array text-[var(--accent)] tracking-wider mt-0.5">
-                  EDITED &middot; WAS {JSON.stringify(src.was)}
+                <div className="text-[10px] font-array text-[var(--ink-dim)] tracking-wider mt-0.5">
+                  {/* JSON.stringify used to run straight to screen here, so a field the
+                      agent left empty read "WAS null" and a tag list came out with
+                      brackets and quotes. undefined printed nothing at all, leaving a
+                      dangling "EDITED · WAS". */}
+                  EDITED &middot; WAS {wasLabel(src.was)}
                 </div>
               )}
             </div>

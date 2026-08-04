@@ -54,6 +54,17 @@ def client(monkeypatch):
     monkeypatch.setattr(api_mod.store, "get", lambda asset_id: state if asset_id == "AI-0042" else None)
     monkeypatch.setattr(api_mod.store, "save", lambda s: saved.update(state=s))
 
+    def fake_mutate(asset_id, change):
+        # stands in for the real locked read-modify-write: same contract, so a
+        # handler that forgets to persist still fails these tests
+        if asset_id != "AI-0042":
+            return None
+        out = change(state)
+        saved.update(state=state)
+        return out
+
+    monkeypatch.setattr(api_mod.store, "mutate", fake_mutate)
+
     api_mod.app.dependency_overrides[require_reviewer] = lambda: FakeUser()
     c = TestClient(api_mod.app)
     c.state, c.saved = state, saved

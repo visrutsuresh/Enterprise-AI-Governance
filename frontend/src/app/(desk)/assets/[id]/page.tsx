@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { API_BASE, api, readable } from "@/lib/api";
-import { STAGES, TIER_COLORS } from "@/lib/stages";
+import { STAGES, sevClass, tierClass } from "@/lib/stages";
 import RecordPanel from "./RecordPanel";
 import ScopePanel from "./ScopePanel";
 import MeasurementPanel from "./MeasurementPanel";
@@ -57,7 +57,6 @@ const SECTIONS = [
   { key: "audit", label: "Audit" },
 ] as const;
 
-const SEV_COLOR: Record<string, string> = { high: "#c95a4a", medium: "#a0772d", low: "#5f9a5c" };
 
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -244,12 +243,7 @@ export default function AssetDetail() {
           {asset.name || state.asset_id}
         </h1>
         {tier && (
-          <span
-            className="px-2.5 py-1 rounded-full text-white text-[12px] font-semibold"
-            style={{ background: TIER_COLORS[tier] || "#525252" }}
-          >
-            {tier} risk
-          </span>
+          <span className={tierClass(tier)}>{tier} risk</span>
         )}
         {tier && !tierEdit && (
           <button
@@ -407,12 +401,7 @@ export default function AssetDetail() {
               {findings.map((f) => (
                 <div key={f.finding_id} className="border-t border-[var(--line)] pt-3 first:border-t-0">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span
-                      className="px-2 py-0.5 rounded-full text-white text-[11px] font-semibold"
-                      style={{ background: SEV_COLOR[f.severity] || "#525252" }}
-                    >
-                      {f.severity}
-                    </span>
+                    <span className={sevClass(f.severity)}>{f.severity}</span>
                     <span className="text-[12.5px] font-mono">{f.control_id}</span>
                     <span className="text-[12px] text-[var(--ink-soft)]">
                       by {f.inspector.replaceAll("_", " ")}

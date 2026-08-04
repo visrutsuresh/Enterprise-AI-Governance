@@ -15,6 +15,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { api, readable } from "@/lib/api";
+import { sevClass } from "@/lib/stages";
 
 type EvidenceFile = {
   id: number;
@@ -67,14 +68,7 @@ const SCOPES = [
   { key: "all", label: "ALL" },
 ] as const;
 
-function sevClass(sev: string | null) {
-  const s = (sev ?? "").toLowerCase();
-  if (s === "critical" || s === "high" || s === "serious")
-    return "bg-[var(--rust-wash)] text-[var(--rust)]";
-  if (s === "medium" || s === "moderate")
-    return "bg-[var(--amber-wash)] text-[var(--amber)]";
-  return "bg-[var(--olive-wash)] text-[var(--olive)]";
-}
+// severity is shared with the rest of the app: solid / outlined / bare, no hue
 
 function dueLabel(f: Finding) {
   if (!f.due_at) return "no date";
@@ -210,7 +204,7 @@ function Card({
         className="cursor-pointer active:cursor-grabbing rounded -mx-1 px-1 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
       >
         <span
-          className={`font-array text-[9px] tracking-wider px-2 py-[3px] rounded-[4px] font-bold ${sevClass(f.severity)}`}
+          className={sevClass(f.severity)}
         >
           {(f.severity ?? "—").toUpperCase()}
         </span>
@@ -466,7 +460,7 @@ export default function Remediation() {
               className="grid grid-cols-[92px_1fr_150px_120px_92px_84px] gap-3 px-4 py-3 items-center border-b border-[var(--line)] last:border-0"
             >
               <span
-                className={`font-array text-[9px] tracking-wider px-2 py-[3px] rounded-[4px] font-bold justify-self-start ${sevClass(f.severity)}`}
+                className={`${sevClass(f.severity)} justify-self-start`}
               >
                 {(f.severity ?? "—").toUpperCase()}
               </span>

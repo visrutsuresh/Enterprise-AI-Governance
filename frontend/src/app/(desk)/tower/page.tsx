@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, readable } from "@/lib/api";
-import { STAGES, TIER_COLORS } from "@/lib/stages";
+import { STAGES, tierClass } from "@/lib/stages";
 import { useUser } from "@/lib/useUser";
 
 type Row = {
@@ -84,16 +84,18 @@ const METRIC_GROUPS: { key: string; title: string; metrics: { key: string; label
 ];
 
 // Is this number good news or bad? A dashboard of undifferentiated digits makes
-// the reader do the judging, which is the one thing a governance dashboard is
-// supposed to do for them. Returns a colour, or null for counts that are neither.
-function verdictOf(m: Metric): { colour: string; word: string } | null {
+// the reader do the judging, which is the one job a governance dashboard has.
+// The verdict is carried by WEIGHT and by a word, never by hue: a tile that
+// needs attention is the heaviest thing in its row.
+type Verdict = { word: string; rank: 0 | 1 | 2 };
+function verdictOf(m: Metric): Verdict | null {
   if (!m.tone || m.tone === "flat" || typeof m.value !== "number") return null;
   if (m.good === undefined || m.bad === undefined) return null;
   const healthy = m.tone === "higher_better" ? m.value >= m.good : m.value <= m.good;
   const poor = m.tone === "higher_better" ? m.value <= m.bad : m.value >= m.bad;
-  if (healthy) return { colour: "var(--olive)", word: "healthy" };
-  if (poor) return { colour: "var(--rust)", word: "needs attention" };
-  return { colour: "var(--amber)", word: "watch" };
+  if (healthy) return { word: "healthy", rank: 0 };
+  if (poor) return { word: "needs attention", rank: 2 };
+  return { word: "watch", rank: 1 };
 }
 
 function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
@@ -101,34 +103,40 @@ function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
   // the row that reads as "we looked and there was nothing"
   if (!m) {
     return (
-      <div className="border border-dashed border-[var(--line)] rounded-xl px-5 py-4">
-        <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
-        <div className="text-[13px] text-[var(--ink-soft)] mt-2">not reported</div>
+      <div className="border border-dashed border-[var(--line)] rounded-[3px] px-5 py-4">
+        <div className="label">{label}</div>
+        <div className="text-[13px] text-[var(--ink-dim)] mt-2">not reported</div>
       </div>
     );
   }
   const shown = m.unit ? `${m.value}${m.unit}` : m.value;
   const v = verdictOf(m);
+  const alarm = v?.rank === 2;
   return (
     <div
-      className="relative border rounded-xl px-5 py-4 bg-[var(--paper)]"
-      style={{ borderColor: v ? v.colour : "var(--line)" }}
+      className={`relative rounded-[3px] px-5 py-4 transition-colors ${
+        alarm ? "border-2 border-[var(--ink)] bg-[var(--wash)]" : "border border-[var(--line)]"
+      }`}
     >
-      <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
+      <div className="label">{label}</div>
       <div
-        className="text-[26px] font-extrabold"
-        style={{ fontFamily: "var(--font-cabinet)", color: v ? v.colour : undefined }}
+        className={`text-[27px] leading-none mt-2 ${alarm ? "font-extrabold" : "font-semibold"}`}
+        style={{ fontFamily: "var(--font-cabinet)" }}
       >
         {shown}
       </div>
       {v && (
-        // the word carries the meaning too, so this still reads on a projector,
-        // in greyscale, and for anyone who cannot separate red from green
-        <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: v.colour }}>
+        // the word is the meaning. It reads on a projector, in greyscale, and
+        // for anyone who cannot separate red from green.
+        <div
+          className={`mt-1.5 text-[9.5px] uppercase tracking-[0.14em] font-bold ${
+            v.rank === 2 ? "text-[var(--ink)]" : v.rank === 1 ? "text-[var(--ink-soft)]" : "text-[var(--ink-dim)]"
+          }`}
+        >
           {v.word}
         </div>
       )}
-      {m.detail && <div className="text-[11px] text-[var(--ink-soft)] mt-1 leading-snug">{m.detail}</div>}
+      {m.detail && <div className="text-[11.5px] text-[var(--ink-soft)] mt-2 leading-snug">{m.detail}</div>}
     </div>
   );
 }
@@ -191,12 +199,7 @@ function Choice({ label, value, options, onChange, scoring }: {
 function TierChip({ tier }: { tier: string | null }) {
   if (!tier) return <span className="text-[var(--ink-soft)]">-</span>;
   return (
-    <span
-      className="px-2 py-0.5 rounded-full text-white text-[11.5px] font-semibold"
-      style={{ background: TIER_COLORS[tier] || "#525252" }}
-    >
-      {tier}
-    </span>
+    <span className={tierClass(tier)}>{tier}</span>
   );
 }
 
