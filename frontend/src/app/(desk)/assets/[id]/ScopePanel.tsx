@@ -11,10 +11,14 @@ type Control = {
   attested: { status: string; note: string; by: string; at: string } | null;
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  met: "var(--olive)",
-  not_met: "var(--rust)",
-  not_applicable: "var(--ink-soft)",
+// met vs not met used to differ only by green vs red. In a black-and-white skin
+// that distinction vanished entirely, on the one panel whose whole job is showing
+// it. Weight carries it now: not met is the solid chip, met is outlined, the rest
+// recede.
+const STATUS_CLASS: Record<string, string> = {
+  not_met: "sev sev-hi",
+  met: "sev sev-mid",
+  not_applicable: "sev sev-low",
 };
 
 export default function ScopePanel({
@@ -125,7 +129,7 @@ export default function ScopePanel({
         </p>
       </div>
 
-      {err && <p className="text-[12.5px] text-[#e5484d]">{err}</p>}
+      {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
 
       <div className="flex flex-wrap gap-5 items-start">
         <label className="text-[12.5px]">
@@ -208,10 +212,7 @@ export default function ScopePanel({
               key={`${c.framework}-${c.id}`}
               className="flex flex-wrap items-center gap-3 py-2 border-b border-[var(--line)] last:border-0"
             >
-              <span
-                className="font-array text-[10px] tracking-wider w-[86px]"
-                style={{ color: STATUS_COLOR[c.attested?.status ?? ""] ?? "var(--ink-soft)" }}
-              >
+              <span className={`${STATUS_CLASS[c.attested?.status ?? ""] ?? "sev sev-low"} w-[96px] text-center`}>
                 {(c.attested?.status ?? "unanswered").replace("_", " ").toUpperCase()}
               </span>
               <span className="text-[12px] font-mono w-[76px] text-[var(--ink-soft)]">{c.id}</span>
@@ -222,7 +223,7 @@ export default function ScopePanel({
                 {["met", "not_met", "not_applicable"].map((s) => (
                   <button
                     key={s}
-                    className="btn ghost text-[11px]"
+                    className="btn ghost"
                     disabled={busy}
                     onClick={() => attest(c, s)}
                   >

@@ -170,7 +170,7 @@ function Field({ label, value, onChange, placeholder, required, scoring }: {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full mt-1 text-[13px] bg-[var(--parchment)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 placeholder:text-[var(--ink-soft)]"
+        className="field w-full mt-1 text-[13px]"
       />
     </label>
   );
@@ -186,7 +186,7 @@ function Choice({ label, value, options, onChange, scoring }: {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full mt-1 text-[13px] bg-[var(--parchment)] border border-[var(--line)] rounded-lg px-2.5 py-1.5"
+        className="field w-full mt-1 text-[13px]"
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -208,10 +208,10 @@ function SourceBadge({ source }: { source: string | null }) {
   return (
     <span
       title={seed ? "authored fixture, no pipeline ran" : "real pipeline output"}
-      className={`px-1.5 py-0.5 rounded text-[10.5px] font-semibold uppercase tracking-wide ${
+      className={`px-1.5 py-0.5 rounded-[3px] text-[10.5px] font-semibold uppercase tracking-wide ${
         seed
           ? "bg-[var(--line)] text-[var(--ink-soft)]"
-          : "bg-[var(--accent)] text-[#1c2126]"
+          : "bg-[var(--accent)] text-white"
       }`}
     >
       {source || "?"}
@@ -396,7 +396,7 @@ export default function Tower() {
   }
 
   const stat = (label: string, value: React.ReactNode) => (
-    <div className="border border-[var(--line)] rounded-xl px-5 py-4 bg-[var(--paper)]">
+    <div className="border border-[var(--line)] rounded-[3px] px-5 py-4 bg-[var(--paper)]">
       <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
       <div className="text-[26px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
         {value}
@@ -407,7 +407,7 @@ export default function Tower() {
   return (
     <main className="py-8 space-y-6">
       {pollFailed && (
-        <p className="text-[12.5px] text-[#e5484d]">
+        <p className="text-[12.5px] text-[var(--danger)]">
           Connection trouble: showing the last known estate, retrying every few seconds.
         </p>
       )}
@@ -440,7 +440,7 @@ export default function Tower() {
         </div>
       )}
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
+      <section className="border border-[var(--line)] rounded-[3px] p-5 bg-[var(--paper)] space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="text-[14px] font-semibold">Live packs:</div>
           {packs && (
@@ -482,7 +482,7 @@ export default function Tower() {
         )}
       </section>
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
+      <section className="border border-[var(--line)] rounded-[3px] p-5 bg-[var(--paper)] space-y-3">
         <div className="flex items-center gap-4">
           <div className="text-[14px] font-semibold">Register an AI system</div>
           <div className="flex gap-1 ml-auto">
@@ -490,10 +490,10 @@ export default function Tower() {
               <button
                 key={m}
                 onClick={() => setRegMode(m)}
-                className={`text-[11.5px] px-2.5 py-1 rounded-full border ${
+                className={`text-[11.5px] px-3 py-1 rounded-[3px] border transition-colors ${
                   regMode === m
-                    ? "border-[var(--accent)] text-[var(--accent)]"
-                    : "border-[var(--line)] text-[var(--ink-soft)]"
+                    ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                    : "border-[var(--line)] text-[var(--ink-soft)] hover:border-[var(--ink)]"
                 }`}
               >
                 {m === "form" ? "Fill a form" : "Describe it"}
@@ -513,7 +513,7 @@ export default function Tower() {
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
-              className="w-full border border-[var(--line)] rounded-lg p-3 text-[13.5px] bg-[var(--parchment)]"
+              className="field w-full text-[13.5px]"
             />
             <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
               {busy === "register" ? "Registering..." : "Register and assess"}
@@ -575,12 +575,12 @@ export default function Tower() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search the register (name, id, owner, type)"
-          className="flex-1 text-[13px] bg-transparent border border-[var(--line)] rounded-lg px-3 py-2 outline-none placeholder:text-[var(--ink-soft)]"
+          className="field flex-1 text-[13px]"
         />
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="text-[12.5px] bg-transparent border border-[var(--line)] rounded-lg px-2 py-2"
+          className="field text-[12.5px]"
         >
           <option value="">all tiers</option>
           {["unacceptable", "high", "limited", "minimal"].map((t) => (
@@ -592,7 +592,7 @@ export default function Tower() {
         <select
           value={flaggedOnly}
           onChange={(e) => setFlaggedOnly(e.target.value)}
-          className="text-[12.5px] bg-transparent border border-[var(--line)] rounded-lg px-2 py-2"
+          className="field text-[12.5px]"
         >
           <option value="">all assets</option>
           <option value="flagged">open flags only</option>
@@ -637,7 +637,7 @@ export default function Tower() {
             <tr
               key={r.asset_id}
               onClick={() => router.push(`/assets/${r.asset_id}`)}
-              className="border-b border-[var(--line)] hover:bg-white/5 cursor-pointer"
+              className="border-b border-[var(--line)] hover:bg-[var(--wash)] cursor-pointer"
             >
               <td className="py-2.5 pr-3">
                 <Link href={`/assets/${r.asset_id}`} className="font-medium hover:text-[var(--accent)]">

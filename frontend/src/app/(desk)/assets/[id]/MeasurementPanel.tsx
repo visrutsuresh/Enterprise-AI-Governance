@@ -16,10 +16,13 @@ type Metric = {
 };
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-const BAND_COLOR: Record<string, string> = {
-  stable: "var(--olive)",
-  moderate: "var(--amber)",
-  significant: "var(--rust)",
+// the three drift bands used to be green / amber / red, which in a monochrome
+// skin collapsed into one identical black. Bar LENGTH now carries the severity
+// and the band word says it outright.
+const BAND_WEIGHT: Record<string, string> = {
+  stable: "font-normal text-[var(--ink-soft)]",
+  moderate: "font-semibold text-[var(--ink)]",
+  significant: "font-extrabold text-[var(--ink)]",
 };
 
 export default function MeasurementPanel({
@@ -119,7 +122,7 @@ export default function MeasurementPanel({
           <span className="font-mono">group, prediction, label</span> and every number below is
           computed from it.
         </p>
-        {err && <p className="text-[12.5px] text-[#e5484d]">{err}</p>}
+        {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
         {fileInput}
         <button className="btn" onClick={() => picker.current?.click()}>
           Upload a sample
@@ -155,19 +158,20 @@ export default function MeasurementPanel({
         </span>
       </div>
 
-      {err && <p className="text-[12.5px] text-[#e5484d]">{err}</p>}
+      {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
 
       <div
-        className="rounded-xl p-4"
-        style={{ background: pass ? "var(--olive-wash)" : "var(--rust-wash)" }}
+        className={`rounded-[3px] p-4 ${
+          pass ? "border border-[var(--line)]" : "border-2 border-[var(--ink)] bg-[var(--wash)]"
+        }`}
       >
         <div className="text-[11px] uppercase tracking-wide text-[var(--ink-soft)]">
           the definition this asset is held to
         </div>
         <div className="flex items-center gap-4 flex-wrap mt-1">
           <span
-            className="text-[30px] font-extrabold"
-            style={{ fontFamily: "var(--font-cabinet)", color: pass ? "var(--olive)" : "var(--rust)" }}
+            className={`text-[30px] ${pass ? "font-semibold" : "font-extrabold"}`}
+            style={{ fontFamily: "var(--font-cabinet)" }}
           >
             {value.toFixed(3)}
           </span>
@@ -220,16 +224,29 @@ export default function MeasurementPanel({
             const val = f[k] as number;
             const ok = v.better === "high" ? val >= v.threshold : val <= v.threshold;
             return (
-              <div key={k} className="rounded-lg px-3 py-2" style={{ boxShadow: "var(--press)" }}>
+              /* pass and fail were green vs red on these five tiles and nothing
+                 else, so in monochrome all five read the same. A failing metric
+                 is now the heavy one, and it says so. */
+              <div
+                key={k}
+                className={`rounded-[3px] px-3 py-2 ${
+                  ok ? "border border-[var(--line)]" : "border-2 border-[var(--ink)] bg-[var(--wash)]"
+                }`}
+              >
                 <div className="text-[9.5px] font-array tracking-wider text-[var(--ink-soft)]">
                   {v.short}
                 </div>
                 <div
-                  className="text-[18px] font-bold"
-                  style={{ fontFamily: "var(--font-cabinet)", color: ok ? "var(--olive)" : "var(--rust)" }}
+                  className={`text-[18px] ${ok ? "font-semibold" : "font-extrabold"}`}
+                  style={{ fontFamily: "var(--font-cabinet)" }}
                 >
                   {val.toFixed(3)}
                 </div>
+                {!ok && (
+                  <div className="text-[9px] font-array tracking-wider text-[var(--ink)] mt-0.5">
+                    BREACH
+                  </div>
+                )}
               </div>
             );
           })}
@@ -292,20 +309,18 @@ export default function MeasurementPanel({
                   <tr key={d.name} className="border-b border-[var(--line)] last:border-0">
                     <td className="py-2 font-mono text-[12px]">{d.name}</td>
                     <td className="text-[var(--ink-soft)] text-[11.5px]">{d.kind}</td>
-                    <td style={{ color: BAND_COLOR[d.band] }} className="font-semibold">
-                      {d.psi.toFixed(3)}
-                    </td>
+                    <td className={BAND_WEIGHT[d.band] ?? ""}>{d.psi.toFixed(3)}</td>
                     <td>
-                      <div className="h-[6px] rounded bg-white/[0.06] overflow-hidden">
+                      <div className="h-[7px] rounded-[2px] bg-[var(--line)] overflow-hidden max-w-[120px]">
                         <div
-                          className="h-full rounded"
-                          style={{
-                            width: `${Math.min(100, (d.psi / 0.5) * 100)}%`,
-                            background: BAND_COLOR[d.band],
-                          }}
+                          className="h-full bg-[var(--ink)]"
+                          style={{ width: `${Math.min(100, (d.psi / 0.5) * 100)}%` }}
+                          title={`PSI ${d.psi.toFixed(3)} (${d.band})`}
                         />
                       </div>
-                      <span className="text-[11px] text-[var(--ink-soft)]">{d.band}</span>
+                      <span className={`text-[11px] ${BAND_WEIGHT[d.band] ?? "text-[var(--ink-soft)]"}`}>
+                        {d.band}
+                      </span>
                     </td>
                   </tr>
                 ))}

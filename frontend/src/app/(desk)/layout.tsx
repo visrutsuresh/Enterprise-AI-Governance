@@ -87,7 +87,7 @@ export default function DeskLayout({
           <div className="ml-auto flex items-center gap-3 text-[13px] text-[var(--ink-soft)]">
             <span>{user.email}</span>
             <span
-              className="w-7 h-7 rounded-full bg-[var(--accent)] text-[#1c2126] grid place-items-center text-[12px] font-bold"
+              className="w-7 h-7 rounded-full bg-[var(--accent)] text-white grid place-items-center text-[12px] font-bold"
               style={{ fontFamily: "var(--font-cabinet)" }}
             >
               {user.email.slice(0, 2).toUpperCase()}

@@ -65,6 +65,7 @@
   --lift-hi: none;
   --press: none;
   --radius: 3px;
+  --danger: #b4231c; /* the ONE colour left: a failure a person must not miss */
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --background: var(--parchment);
@@ -516,7 +517,7 @@ h3 {
 }
 .act-acc {
   background: var(--accent);
-  color: #1c2126;
+  color: #fff;
 }
 .act-acc:hover {
   background: var(--accent-deep);
@@ -576,7 +577,7 @@ h3 {
 }
 .finish.ready {
   background: var(--accent);
-  color: #1c2126;
+  color: #fff;
 }
 .finish.ready:hover {
   transform: translateY(-1px);

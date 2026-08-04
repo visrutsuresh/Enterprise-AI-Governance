@@ -201,7 +201,7 @@ function Card({
             router.push(`/assets/${f.asset_id}`);
           }
         }}
-        className="cursor-pointer active:cursor-grabbing rounded -mx-1 px-1 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+        className="cursor-pointer active:cursor-grabbing rounded -mx-1 px-1 hover:bg-[var(--wash)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
       >
         <span
           className={sevClass(f.severity)}
@@ -279,7 +279,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={`rounded-[var(--radius)] p-3 transition-colors ${
-        isOver ? "bg-[var(--accent-wash)]" : "bg-[rgba(255,255,255,0.02)]"
+        isOver ? "bg-[var(--accent-wash)]" : "bg-[var(--wash)]"
       }`}
     >
       <div className="flex justify-between font-array text-[9px] tracking-[0.09em] text-[var(--ink-soft)] mb-3">
@@ -409,7 +409,7 @@ export default function Remediation() {
           <button
             key={s.key}
             onClick={() => setScope(s.key)}
-            className={`font-array text-[9.5px] tracking-wider px-3 py-[6px] rounded-full border transition-colors ${
+            className={`font-array text-[9.5px] tracking-wider px-3 py-[6px] rounded-[3px] border transition-colors ${
               scope === s.key
                 ? "bg-[var(--accent-wash)] text-[var(--accent)] border-[var(--accent)]"
                 : "text-[var(--ink-soft)] border-[var(--line)] hover:text-[var(--ink)]"
@@ -422,7 +422,7 @@ export default function Remediation() {
           <select
             value={team}
             onChange={(e) => setTeam(e.target.value)}
-            className="font-array text-[9.5px] tracking-wider bg-transparent border border-[var(--line)] rounded-full px-3 py-[6px] outline-none text-[var(--ink-soft)]"
+            className="font-array text-[9.5px] tracking-wider bg-transparent border border-[var(--line)] rounded-[3px] px-3 py-[6px] outline-none text-[var(--ink-soft)]"
           >
             <option value="">ANY TEAM</option>
             {teams.map((t) => (
@@ -525,7 +525,7 @@ export default function Remediation() {
           </div>
           <DragOverlay>
             {dragId ? (
-              <div className="panel p-3 shadow-[var(--lift-hi)] rotate-[1.5deg]">
+              <div className="panel p-3 rotate-[1.5deg] border-2 border-[var(--ink)]">
                 <p className="text-[12.5px] font-semibold">
                   {board.findings.find((f) => f.finding_id === dragId)?.plain}
                 </p>

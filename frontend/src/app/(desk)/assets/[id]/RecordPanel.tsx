@@ -98,7 +98,7 @@ export default function RecordPanel({
         </p>
       </div>
 
-      {err && <p className="text-[12.5px] text-[#e5484d]">{err}</p>}
+      {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         {FIELDS.map((f) => {
@@ -163,7 +163,7 @@ export default function RecordPanel({
               ) : (
                 <div
                   onClick={() => open(f)}
-                  className="text-[13.5px] mt-0.5 px-2 py-1 -mx-2 rounded cursor-text hover:bg-white/[0.03]"
+                  className="text-[13.5px] mt-0.5 px-2 py-1 -mx-2 rounded cursor-text hover:bg-[var(--wash)]"
                 >
                   {shown || <span className="text-[var(--ink-soft)] italic">not stated</span>}
                 </div>

@@ -129,7 +129,7 @@ export default function People() {
             className="w-full bg-transparent border-b border-[var(--line)] focus:border-[var(--accent)] outline-none py-1.5"
           />
         </div>
-        <button type="submit" disabled={busy} className="act act-acc">
+        <button type="submit" disabled={busy} className="btn">
           Create reviewer
         </button>
       </form>
@@ -152,13 +152,13 @@ export default function People() {
                 {p.role.toUpperCase()}
               </span>
               <span
-                className={`font-array text-[11px] ${p.is_active ? "text-[var(--olive)]" : "text-[var(--rust)]"}`}
+                className={`sev ${p.is_active ? "sev-low" : "sev-mid"}`}
               >
                 {p.is_active ? "ACTIVE" : "DEACTIVATED"}
               </span>
               <span className="flex gap-2 justify-end">
                 <button
-                  className="act"
+                  className="btn ghost"
                   disabled={busy}
                   onClick={() => resetPassword(p)}
                 >
@@ -167,7 +167,7 @@ export default function People() {
                 {p.is_active ? (
                   p.id !== user.id && (
                     <button
-                      className="act act-rej"
+                      className="btn ghost"
                       disabled={busy}
                       onClick={() => setActive(p, false)}
                     >
@@ -176,7 +176,7 @@ export default function People() {
                   )
                 ) : (
                   <button
-                    className="act act-acc"
+                    className="btn"
                     disabled={busy}
                     onClick={() => setActive(p, true)}
                   >

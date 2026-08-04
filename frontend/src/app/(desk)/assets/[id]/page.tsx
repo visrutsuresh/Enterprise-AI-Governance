@@ -281,7 +281,7 @@ export default function AssetDetail() {
         )}
         <span
           className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase ${
-            asset.source === "pipeline" ? "bg-[var(--accent)] text-[#1c2126]" : "bg-[var(--line)] text-[var(--ink-soft)]"
+            asset.source === "pipeline" ? "bg-[var(--accent)] text-white" : "bg-[var(--line)] text-[var(--ink-soft)]"
           }`}
         >
           {asset.source}
@@ -294,19 +294,19 @@ export default function AssetDetail() {
       </div>
 
       {pollFailed && (
-        <p className="text-[12.5px] text-[#e5484d] mt-2">
+        <p className="text-[12.5px] text-[var(--danger)] mt-2">
           Connection trouble: showing the last known state, retrying every few seconds.
         </p>
       )}
       {state.status === "error" && (
         <div
-          className="mt-3 rounded-xl p-4 text-[13.5px]"
+          className="mt-3 rounded-[3px] p-4 text-[13.5px]"
           style={{ background: "var(--rust-wash)", color: "var(--rust)" }}
         >
           {state.error}
         </div>
       )}
-      {actError && <p className="text-[12.5px] text-[#e5484d] mt-2">{actError}</p>}
+      {actError && <p className="text-[12.5px] text-[var(--danger)] mt-2">{actError}</p>}
       {notice && <p className="text-[13px] text-[var(--accent)] mt-2">{notice}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-[168px_minmax(0,1fr)_310px] gap-6 mt-6 items-start">
@@ -315,7 +315,7 @@ export default function AssetDetail() {
             <button
               key={s.key}
               onClick={() => setSection(s.key)}
-              className={`text-left font-array text-[10px] tracking-[0.12em] uppercase px-3 py-2 rounded-lg transition-colors ${
+              className={`text-left font-array text-[10px] tracking-[0.12em] uppercase px-3 py-2 rounded-[3px] transition-colors ${
                 section === s.key
                   ? "text-[var(--ink)] bg-[var(--accent-wash)]"
                   : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -351,7 +351,7 @@ export default function AssetDetail() {
                 <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
                   Findings ({findings.length})
                 </h2>
-                <button className="btn ghost text-[12px] ml-auto" onClick={() => setLogging(!logging)}>
+                <button className="btn ghost ml-auto" onClick={() => setLogging(!logging)}>
                   {logging ? "Cancel" : "Log an issue"}
                 </button>
               </div>
@@ -359,7 +359,7 @@ export default function AssetDetail() {
               {/* every finding here used to come from an agent. An issue found in a
                   pen test, an incident or a meeting simply could not be written down. */}
               {logging && (
-                <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
+                <div className="border border-[var(--line)] rounded-[3px] p-3 space-y-2">
                   <p className="text-[12px] text-[var(--ink-soft)]">
                     Something you already know is wrong. It joins the audit chain as raised by you,
                     and lands on the remediation board like any other finding.
@@ -520,11 +520,10 @@ export default function AssetDetail() {
                   Audit trail
                 </h2>
                 {audit && (
-                  <span
-                    className={`px-2 py-0.5 rounded text-[12px] font-semibold text-white ${
-                      audit.intact ? "bg-[#5f9a5c]" : "bg-[#c95a4a]"
-                    }`}
-                  >
+                  // intact was green and tampered was red, the only saturated pair
+                  // left in the app. Tampered is now the heaviest chip on the page,
+                  // which is what the app's central claim deserves.
+                  <span className={`sev ${audit.intact ? "sev-mid" : "sev-hi"}`}>
                     {audit.intact ? "chain intact" : `TAMPERED at entry ${audit.broken_at}`}
                   </span>
                 )}

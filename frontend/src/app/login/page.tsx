@@ -106,7 +106,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="bg-[var(--accent)] hover:bg-[var(--accent-deep)] text-[#1c2126] font-semibold text-sm px-6 py-2.5 rounded-[7px] active:scale-[0.98] transition disabled:opacity-50"
+          className="btn"
         >
           {busy ? "One moment" : needsSetup ? "Create administrator" : "Sign in"}
         </button>
