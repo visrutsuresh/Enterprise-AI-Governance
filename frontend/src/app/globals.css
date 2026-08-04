@@ -549,3 +549,8 @@ h3 {
 }
 .btn:hover { background: var(--accent-deep); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* the quiet sibling: used where a row has three or four choices and three or
+   four filled teal buttons would shout */
+.btn.ghost { background: transparent; color: var(--ink-soft); box-shadow: inset 0 0 0 1px var(--line); }
+.btn.ghost:hover { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }

@@ -2,8 +2,18 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { api, API_BASE } from "@/lib/api";
+import { API_BASE, api } from "@/lib/api";
 import { STAGES, TIER_COLORS } from "@/lib/stages";
+import RecordPanel from "./RecordPanel";
+import ScopePanel from "./ScopePanel";
+import MeasurementPanel from "./MeasurementPanel";
+import EffectRail from "./EffectRail";
+
+/* THE COCKPIT (layout C).
+   Section rail on the left, one section at a time in the middle, and on the
+   right a column that never leaves: what the record adds up to. The page used
+   to be one long scroll of everything at once, which is fine at four panels and
+   unreadable at seven. */
 
 type Finding = {
   finding_id: string;
@@ -18,28 +28,56 @@ type Finding = {
   review?: { verdict: string; reason: string; by: string; at: string };
 };
 
-type AuditView = {
-  entries: { step: string; hash: string }[];
-  count: number;
-  intact: boolean;
-  broken_at: number | null;
+type EvidenceRow = { id: number; filename: string; size: number; uploaded_by: string };
+
+// the stored GovernanceState, as much of it as this page reads
+type AssetState = {
+  asset_id: string;
+  status: string;
+  stage: string;
+  error?: string | null;
+  risk_tier?: string | null;
+  decision?: string;
+  fairness_metric?: string;
+  field_source?: Record<string, { was: unknown; by: string; at: string }>;
+  packs?: { policy?: string; framework?: string; extra_frameworks?: string[] };
+  audit?: { step: string }[];
+  asset?: Record<string, unknown> & {
+    name?: string;
+    source?: string;
+    assessment?: { risk_tier?: string; decision?: string; findings?: Finding[] };
+  };
 };
+
+const SECTIONS = [
+  { key: "record", label: "Record" },
+  { key: "scope", label: "Rulebooks" },
+  { key: "measure", label: "Measurement" },
+  { key: "findings", label: "Findings" },
+  { key: "audit", label: "Audit" },
+] as const;
 
 const SEV_COLOR: Record<string, string> = { high: "#c95a4a", medium: "#a0772d", low: "#5f9a5c" };
 
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
-  const [state, setState] = useState<Record<string, any> | null>(null);
-  const [audit, setAudit] = useState<AuditView | null>(null);
-  const [showAudit, setShowAudit] = useState(false);
-  const [busy, setBusy] = useState("");
-  const [overriding, setOverriding] = useState(""); // finding id whose override reason is being typed
-  const [reason, setReason] = useState("");
-  const [actError, setActError] = useState(""); // a failed click must say so, not silently no-op
+  const [state, setState] = useState<AssetState | null>(null);
+  const [section, setSection] = useState<string>("record");
+  const [notice, setNotice] = useState("");
   const [pollFailed, setPollFailed] = useState(false);
+  const [actError, setActError] = useState("");
+  const [audit, setAudit] = useState<{
+    entries: { step: string; hash: string }[];
+    count: number;
+    intact: boolean;
+    broken_at: number | null;
+  } | null>(null);
+  const [metric, setMetric] = useState<{ short: string; value: number; pass: boolean } | null>(null);
+  const [busy, setBusy] = useState("");
+  const [overriding, setOverriding] = useState("");
+  const [reason, setReason] = useState("");
+  const [files, setFiles] = useState<Record<string, EvidenceRow[]>>({});
   const [tierEdit, setTierEdit] = useState(false);
-  type EvidenceRow = { id: number; filename: string; size: number; uploaded_by: string };
-  const [files, setFiles] = useState<Record<string, EvidenceRow[]>>({}); // evidence per finding, fetched on demand
   const [newTier, setNewTier] = useState("high");
   const [tierReason, setTierReason] = useState("");
 
@@ -54,17 +92,43 @@ export default function AssetDetail() {
 
   useEffect(() => {
     refresh();
+    // keep the 4s poll: a running assessment narrates through it, and the rail
+    // has to reflect anything a colleague changed in another tab
     const t = setInterval(refresh, 4000);
     return () => clearInterval(t);
   }, [refresh]);
 
-  async function loadAudit() {
-    setShowAudit(true);
-    try {
-      setAudit(await api(`/assets/${id}/audit`));
-    } catch (e) {
-      setActError(`Could not load the audit trail: ${e}`);
-    }
+  // the rail wants the bound metric's value, and only the measurement endpoint knows it
+  useEffect(() => {
+    api(`/assets/${id}/measurements`)
+      .then((r) => {
+        const last = r.periods[r.periods.length - 1];
+        if (!last) return setMetric(null);
+        const m = r.metrics_catalogue[r.metric];
+        const v = last.computed.fairness[r.metric];
+        setMetric({
+          short: m.short,
+          value: v,
+          pass: m.better === "high" ? v >= m.threshold : v <= m.threshold,
+        });
+      })
+      .catch(() => setMetric(null));
+  }, [id, state?.decision, state?.fairness_metric]);
+
+  const loadAudit = useCallback(() => {
+    api(`/assets/${id}/audit`)
+      .then(setAudit)
+      .catch((e) => setActError(`Could not load the audit trail: ${e}`));
+  }, [id]);
+
+  useEffect(() => {
+    if (section === "audit") loadAudit();
+  }, [section, loadAudit, state?.audit?.length]);
+
+  function saved(msg: string) {
+    setNotice(msg);
+    setActError("");
+    refresh();
   }
 
   async function route(finding_id: string) {
@@ -73,7 +137,6 @@ export default function AssetDetail() {
     try {
       await api(`/flags/${finding_id}/route`, { method: "POST" });
       refresh();
-      if (showAudit) loadAudit();
     } catch (e) {
       setActError(`Routing did not go through: ${e}`);
     } finally {
@@ -81,8 +144,6 @@ export default function AssetDetail() {
     }
   }
 
-  // the reviewer's verdict on a flag. an override must carry a reason, which is
-  // the whole point: a dismissal with no reason is what an auditor objects to.
   async function decide(finding_id: string, verdict: "approved" | "overridden") {
     setBusy(finding_id);
     setActError("");
@@ -94,7 +155,6 @@ export default function AssetDetail() {
       setOverriding("");
       setReason("");
       refresh();
-      if (showAudit) loadAudit();
     } catch (e) {
       setActError(`That decision did not go through: ${e}`);
     } finally {
@@ -102,8 +162,6 @@ export default function AssetDetail() {
     }
   }
 
-  // the human correction path for the headline judgement itself (the model
-  // mis-tiers ~1 in 4); the correction lands on the audit chain server-side
   async function overrideTier() {
     setBusy("tier");
     setActError("");
@@ -115,7 +173,6 @@ export default function AssetDetail() {
       setTierEdit(false);
       setTierReason("");
       refresh();
-      if (showAudit) loadAudit();
     } catch (e) {
       setActError(`Tier override did not go through: ${e}`);
     } finally {
@@ -134,34 +191,19 @@ export default function AssetDetail() {
 
   if (!state) return <main className="py-10 text-[var(--ink-soft)]">Loading...</main>;
 
-  const asset = state.asset || {};
-  const assessment = asset.assessment || {};
-  const findings: Finding[] = assessment.findings || [];
-  const checks: Record<string, string> = assessment.inspector_status || {};
-  const tier = (state.risk_tier || assessment.risk_tier || "").toLowerCase();
-
-  const fact = (label: string, value: React.ReactNode) => (
-    <div>
-      <div className="text-[11.5px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
-      <div className="text-[13.5px]">{value || <span className="text-[var(--ink-soft)]">not stated</span>}</div>
-    </div>
-  );
+  const asset = state.asset ?? {};
+  const assessment = asset.assessment ?? {};
+  const findings: Finding[] = assessment.findings ?? [];
+  const tier = String(state.risk_tier || assessment.risk_tier || "").toLowerCase();
 
   return (
-    <main className="py-8 space-y-6">
+    <main className="py-6">
       <Link href="/tower" className="text-[13px] underline underline-offset-4">
         &larr; Control tower
       </Link>
 
-      {pollFailed && (
-        <p className="text-[12.5px] text-[#e5484d]">
-          Connection trouble: showing the last known state, retrying every few seconds.
-        </p>
-      )}
-      {actError && <p className="text-[12.5px] text-[#e5484d]">{actError}</p>}
-
-      <div className="flex items-center gap-4">
-        <h1 className="text-[26px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
+      <div className="flex items-center gap-4 flex-wrap mt-4">
+        <h1 className="text-[25px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
           {asset.name || state.asset_id}
         </h1>
         {tier && (
@@ -181,12 +223,8 @@ export default function AssetDetail() {
           </button>
         )}
         {tierEdit && (
-          <span className="flex items-center gap-2">
-            <select
-              value={newTier}
-              onChange={(e) => setNewTier(e.target.value)}
-              className="text-[12.5px] bg-transparent border border-[var(--line)] rounded px-2 py-1"
-            >
+          <span className="flex items-center gap-2 flex-wrap">
+            <select value={newTier} onChange={(e) => setNewTier(e.target.value)} className="field text-[12.5px]">
               {["unacceptable", "high", "limited", "minimal"].map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -197,7 +235,7 @@ export default function AssetDetail() {
               value={tierReason}
               onChange={(e) => setTierReason(e.target.value)}
               placeholder="why the assigned tier is wrong"
-              className="text-[12.5px] bg-transparent border border-[var(--line)] rounded px-2 py-1 w-64"
+              className="field text-[12.5px] w-64"
             />
             <button className="btn" disabled={busy !== "" || !tierReason.trim()} onClick={overrideTier}>
               Save
@@ -210,14 +248,9 @@ export default function AssetDetail() {
             </button>
           </span>
         )}
-        {state.tier_override && !tierEdit && (
-          <span className="text-[11.5px] text-[var(--ink-soft)]">
-            corrected from {state.tier_override.from} by {state.tier_override.by}
-          </span>
-        )}
         <span
           className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase ${
-            asset.source === "seed" ? "bg-[var(--line)] text-[var(--ink-soft)]" : "bg-[var(--accent)] text-[#1c2126]"
+            asset.source === "pipeline" ? "bg-[var(--accent)] text-[#1c2126]" : "bg-[var(--line)] text-[var(--ink-soft)]"
           }`}
         >
           {asset.source}
@@ -229,189 +262,229 @@ export default function AssetDetail() {
         )}
       </div>
 
-      {state.status === "error" && (
-        <div className="border border-[var(--rust)] bg-[var(--rust-wash)] rounded-xl p-4 text-[13.5px]">{state.error}</div>
+      {pollFailed && (
+        <p className="text-[12.5px] text-[#e5484d] mt-2">
+          Connection trouble: showing the last known state, retrying every few seconds.
+        </p>
       )}
+      {state.status === "error" && (
+        <div
+          className="mt-3 rounded-xl p-4 text-[13.5px]"
+          style={{ background: "var(--rust-wash)", color: "var(--rust)" }}
+        >
+          {state.error}
+        </div>
+      )}
+      {actError && <p className="text-[12.5px] text-[#e5484d] mt-2">{actError}</p>}
+      {notice && <p className="text-[13px] text-[var(--accent)] mt-2">{notice}</p>}
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] grid grid-cols-2 md:grid-cols-4 gap-4">
-        {fact("asset id", asset.asset_id)}
-        {fact("type", asset.type)}
-        {fact("owner", asset.owner)}
-        {fact("lifecycle", asset.lifecycle)}
-        {fact("purpose", asset.purpose)}
-        {fact("deployment", asset.deployment)}
-        {fact("data touched", (asset.data_touched || []).join(", "))}
-        {fact("third party", asset.third_party)}
-        {fact("human oversight", asset.human_oversight)}
-        {fact("decision", assessment.decision)}
-        {fact("risk score", assessment.risk ? `${assessment.risk.score}/100 (${assessment.risk.why})` : "")}
-        {fact(
-          "inspectors",
-          Object.entries(checks)
-            .map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`)
-            .join(" | ")
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
-          Findings ({findings.length})
-        </h2>
-        {findings.length === 0 && (
-          <div className="text-[13.5px] text-[var(--ink-soft)]">
-            {state.status === "processing" ? "Assessment still running." : "No findings: compliant."}
-          </div>
-        )}
-        {findings.map((f) => (
-          <div key={f.finding_id} className="border border-[var(--line)] rounded-xl p-4 bg-[var(--paper)] space-y-1.5">
-            <div className="flex items-center gap-3">
-              <span
-                className="px-2 py-0.5 rounded-full text-white text-[11px] font-semibold"
-                style={{ background: SEV_COLOR[f.severity] || "#525252" }}
-              >
-                {f.severity}
-              </span>
-              <span className="text-[12.5px] font-mono">{f.control_id}</span>
-              <span className="text-[12px] text-[var(--ink-soft)]">by {f.inspector.replaceAll("_", " ")}</span>
-              <span className="ml-auto text-[12px] text-[var(--ink-soft)]">{f.finding_id}</span>
-            </div>
-            <div className="text-[14.5px] font-medium">{f.plain}</div>
-            <div className="text-[12.5px] text-[var(--ink-soft)]">Evidence: {f.evidence}</div>
-            <div className="text-[12.5px]">Fix: {f.remediation}</div>
-            <div className="text-[12.5px]">
-              <button
-                className="underline underline-offset-4 text-[var(--ink-soft)]"
-                onClick={() => loadFiles(f.finding_id)}
-              >
-                {files[f.finding_id] ? "refresh attached evidence" : "show attached evidence"}
-              </button>
-              {files[f.finding_id] &&
-                (files[f.finding_id].length === 0 ? (
-                  <span className="ml-2 text-[var(--ink-soft)]">none attached yet (uploads live on the remediation board)</span>
-                ) : (
-                  <ul className="mt-1 space-y-0.5">
-                    {files[f.finding_id].map((ev) => (
-                      <li key={ev.id}>
-                        <a href={`${API_BASE}/evidence/${ev.id}`} className="underline underline-offset-4">
-                          {ev.filename}
-                        </a>{" "}
-                        <span className="text-[var(--ink-soft)]">
-                          ({Math.max(1, Math.round(ev.size / 1024))} KB, by {ev.uploaded_by})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ))}
-            </div>
-            <div className="flex items-center gap-3 pt-1 flex-wrap">
-              {f.routed_to ? (
-                <span className="text-[12.5px]">
-                  Routed to <b>{f.routed_to}</b>
-                </span>
-              ) : (
-                <button className="btn" disabled={busy !== ""} onClick={() => route(f.finding_id)}>
-                  {busy === f.finding_id ? "Routing..." : "Route to a team"}
-                </button>
-              )}
-
-              {f.review ? (
-                <span className="text-[12.5px]">
-                  <b>{f.review.verdict === "approved" ? "Confirmed" : "Overridden"}</b> by {f.review.by}
-                  {f.review.reason && <span className="text-[var(--ink-soft)]"> &mdash; {f.review.reason}</span>}
-                </span>
-              ) : (
-                <>
-                  <button className="btn" disabled={busy !== ""} onClick={() => decide(f.finding_id, "approved")}>
-                    {busy === f.finding_id ? "Saving..." : "Approve"}
-                  </button>
-                  <button
-                    className="btn"
-                    disabled={busy !== ""}
-                    onClick={() => {
-                      setOverriding(f.finding_id);
-                      setReason("");
-                    }}
-                  >
-                    Override
-                  </button>
-                </>
-              )}
-            </div>
-
-            {overriding === f.finding_id && !f.review && (
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  autoFocus
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Why does this not apply? (recorded in the audit trail)"
-                  className="flex-1 border border-[var(--line)] rounded px-2 py-1 text-[13px] bg-transparent"
-                />
-                <button
-                  className="btn"
-                  disabled={!reason.trim() || busy !== ""}
-                  onClick={() => decide(f.finding_id, "overridden")}
-                >
-                  Save override
-                </button>
-                <button
-                  className="text-[12.5px] underline underline-offset-4 text-[var(--ink-soft)]"
-                  onClick={() => {
-                    setOverriding("");
-                    setReason("");
-                  }}
-                >
-                  cancel
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </section>
-
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
-        <div className="flex items-center gap-4">
-          <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
-            Audit trail
-          </h2>
-          {!showAudit && (
-            <button className="btn" onClick={loadAudit}>
-              Open the trail
-            </button>
-          )}
-          {audit && (
-            <span
-              className={`px-2 py-0.5 rounded text-[12px] font-semibold text-white ${
-                audit.intact ? "bg-[#5f9a5c]" : "bg-[#c95a4a]"
+      <div className="grid grid-cols-1 lg:grid-cols-[168px_minmax(0,1fr)_310px] gap-6 mt-6 items-start">
+        <nav className="lg:sticky lg:top-5 flex lg:flex-col gap-1 flex-wrap">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSection(s.key)}
+              className={`text-left font-array text-[10px] tracking-[0.12em] uppercase px-3 py-2 rounded-lg transition-colors ${
+                section === s.key
+                  ? "text-[var(--ink)] bg-[var(--accent-wash)]"
+                  : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
               }`}
             >
-              {audit.intact ? "chain intact" : `TAMPERED at entry ${audit.broken_at}`}
-            </span>
+              {s.label}
+              {s.key === "findings" && findings.length > 0 && (
+                <span className="text-[var(--accent)] ml-1.5">{findings.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div>
+          {section === "record" && (
+            <RecordPanel
+              assetId={id}
+              asset={asset}
+              fieldSource={state.field_source ?? {}}
+              onSaved={saved}
+            />
+          )}
+
+          {section === "scope" && (
+            <ScopePanel assetId={id} packs={state.packs ?? {}} onSaved={saved} />
+          )}
+
+          {section === "measure" && <MeasurementPanel assetId={id} onSaved={saved} />}
+
+          {section === "findings" && (
+            <section className="panel p-5 space-y-3">
+              <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+                Findings ({findings.length})
+              </h2>
+              {findings.length === 0 && (
+                <p className="text-[13.5px] text-[var(--ink-soft)]">
+                  {state.status === "processing" ? "Assessment still running." : "No findings: compliant."}
+                </p>
+              )}
+              {findings.map((f) => (
+                <div key={f.finding_id} className="border-t border-[var(--line)] pt-3 first:border-t-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span
+                      className="px-2 py-0.5 rounded-full text-white text-[11px] font-semibold"
+                      style={{ background: SEV_COLOR[f.severity] || "#525252" }}
+                    >
+                      {f.severity}
+                    </span>
+                    <span className="text-[12.5px] font-mono">{f.control_id}</span>
+                    <span className="text-[12px] text-[var(--ink-soft)]">
+                      by {f.inspector.replaceAll("_", " ")}
+                    </span>
+                    <span className="ml-auto text-[12px] text-[var(--ink-soft)]">{f.finding_id}</span>
+                  </div>
+                  <div className="text-[14px] font-medium mt-1.5">{f.plain}</div>
+                  <div className="text-[12.5px] text-[var(--ink-soft)] mt-0.5">Evidence: {f.evidence}</div>
+                  <div className="text-[12.5px]">Fix: {f.remediation}</div>
+
+                  <div className="text-[12.5px] mt-1">
+                    <button
+                      className="underline underline-offset-4 text-[var(--ink-soft)]"
+                      onClick={() => loadFiles(f.finding_id)}
+                    >
+                      {files[f.finding_id] ? "refresh attached evidence" : "show attached evidence"}
+                    </button>
+                    {files[f.finding_id] &&
+                      (files[f.finding_id].length === 0 ? (
+                        <span className="ml-2 text-[var(--ink-soft)]">
+                          none attached yet (uploads live on the remediation board)
+                        </span>
+                      ) : (
+                        <ul className="mt-1 space-y-0.5">
+                          {files[f.finding_id].map((ev) => (
+                            <li key={ev.id}>
+                              <a href={`${API_BASE}/evidence/${ev.id}`} className="underline underline-offset-4">
+                                {ev.filename}
+                              </a>{" "}
+                              <span className="text-[var(--ink-soft)]">
+                                ({Math.max(1, Math.round(ev.size / 1024))} KB, by {ev.uploaded_by})
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ))}
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2 flex-wrap">
+                    {f.routed_to ? (
+                      <span className="text-[12.5px]">
+                        Routed to <b>{f.routed_to}</b>
+                      </span>
+                    ) : (
+                      <button className="btn ghost" disabled={busy !== ""} onClick={() => route(f.finding_id)}>
+                        {busy === f.finding_id ? "Routing..." : "Route to a team"}
+                      </button>
+                    )}
+
+                    {f.review ? (
+                      <span className="text-[12.5px]">
+                        <b>{f.review.verdict === "approved" ? "Confirmed" : "Overridden"}</b> by {f.review.by}
+                        {f.review.reason && (
+                          <span className="text-[var(--ink-soft)]"> &mdash; {f.review.reason}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          className="btn ghost"
+                          disabled={busy !== ""}
+                          onClick={() => decide(f.finding_id, "approved")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn ghost"
+                          disabled={busy !== ""}
+                          onClick={() => {
+                            setOverriding(f.finding_id);
+                            setReason("");
+                          }}
+                        >
+                          Override
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {overriding === f.finding_id && !f.review && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        autoFocus
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="Why does this not apply? (recorded in the audit trail)"
+                        className="field flex-1 text-[13px]"
+                      />
+                      <button
+                        className="btn"
+                        disabled={!reason.trim() || busy !== ""}
+                        onClick={() => decide(f.finding_id, "overridden")}
+                      >
+                        Save override
+                      </button>
+                      <button
+                        className="text-[12.5px] underline underline-offset-4 text-[var(--ink-soft)]"
+                        onClick={() => {
+                          setOverriding("");
+                          setReason("");
+                        }}
+                      >
+                        cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
+
+          {section === "audit" && (
+            <section className="panel p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+                  Audit trail
+                </h2>
+                {audit && (
+                  <span
+                    className={`px-2 py-0.5 rounded text-[12px] font-semibold text-white ${
+                      audit.intact ? "bg-[#5f9a5c]" : "bg-[#c95a4a]"
+                    }`}
+                  >
+                    {audit.intact ? "chain intact" : `TAMPERED at entry ${audit.broken_at}`}
+                  </span>
+                )}
+              </div>
+              <ol className="space-y-1">
+                {(audit?.entries ?? []).map((e, i) => (
+                  <li
+                    key={i}
+                    className={`text-[12px] font-mono px-2 py-1 rounded ${
+                      audit?.broken_at !== null && audit?.broken_at !== undefined && i >= audit.broken_at
+                        ? "bg-[var(--rust-wash)] text-[var(--rust)]"
+                        : ""
+                    }`}
+                  >
+                    {i}. {e.step} <span className="text-[var(--ink-soft)]">[{e.hash.slice(0, 10)}...]</span>
+                  </li>
+                ))}
+                {audit?.count === 0 && (
+                  <li className="text-[12.5px] text-[var(--ink-soft)]">
+                    Empty chain: this is a seeded fixture, no pipeline ever ran on it.
+                  </li>
+                )}
+              </ol>
+            </section>
           )}
         </div>
-        {audit && (
-          <ol className="space-y-1">
-            {audit.entries.map((e, i) => (
-              <li
-                key={i}
-                className={`text-[12.5px] font-mono px-2 py-1 rounded ${
-                  audit.broken_at !== null && i >= (audit.broken_at as number)
-                    ? "bg-[var(--rust-wash)] text-[var(--rust)]"
-                    : ""
-                }`}
-              >
-                {i}. {e.step}
-                <span className="text-[var(--ink-soft)]"> [{e.hash.slice(0, 10)}...]</span>
-              </li>
-            ))}
-            {audit.count === 0 && (
-              <li className="text-[12.5px] text-[var(--ink-soft)]">
-                Empty chain: this is a seeded fixture, no pipeline ever ran on it.
-              </li>
-            )}
-          </ol>
-        )}
-      </section>
+
+        <EffectRail state={state} metric={metric} />
+      </div>
     </main>
   );
 }

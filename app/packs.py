@@ -18,8 +18,9 @@ load_dotenv()
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
-def _load(kind: str, env_var: str) -> dict:
-    name = os.getenv(env_var, "")
+def _load(kind: str, env_var: str, name: str | None = None) -> dict:
+    # an explicit name wins; the env var is the estate-wide DEFAULT, not the law
+    name = (name or os.getenv(env_var, "")).strip()
     if not name:
         raise RuntimeError(f"{env_var} missing from the environment; the app cannot assess without a pack")
     path = DATA_DIR / kind / f"{name}.json"
@@ -28,12 +29,37 @@ def _load(kind: str, env_var: str) -> dict:
     return json.loads(path.read_text())
 
 
-def load_policy_pack() -> dict:
-    return _load("policy_packs", "POLICY_PACK")
+def load_policy_pack(name: str | None = None) -> dict:
+    return _load("policy_packs", "POLICY_PACK", name)
 
 
-def load_framework_pack() -> dict:
-    return _load("framework_packs", "FRAMEWORK_PACK")
+def load_framework_pack(name: str | None = None) -> dict:
+    return _load("framework_packs", "FRAMEWORK_PACK", name)
+
+
+def available() -> dict:
+    """Every pack file on disk, so the UI offers a real choice instead of a
+    hard-coded pair of names."""
+
+    def names(kind: str) -> list:
+        d = DATA_DIR / kind
+        return sorted(p.stem for p in d.glob("*.json")) if d.exists() else []
+
+    return {"policy_packs": names("policy_packs"), "framework_packs": names("framework_packs")}
+
+
+def chosen(state: dict) -> dict:
+    """Which rulebooks bind THIS asset. One estate, many rulebooks: a credit
+    model serving EU customers and an internal document sorter are not under the
+    same law, so the choice belongs on the asset. An asset that never chose
+    falls through to the env vars, which is why the global swap demo still works.
+    """
+    picked = state.get("packs") or {}
+    return {
+        "policy": picked.get("policy") or os.getenv("POLICY_PACK", ""),
+        "framework": picked.get("framework") or os.getenv("FRAMEWORK_PACK", ""),
+        "extra_frameworks": picked.get("extra_frameworks") or [],
+    }
 
 
 def fires(rule: dict, asset: dict) -> bool:

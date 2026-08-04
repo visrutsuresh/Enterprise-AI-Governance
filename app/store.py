@@ -64,6 +64,25 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS evidence_finding_idx ON evidence (finding_id)")
 
+        # A measurement is not a fact about the asset, it is a dated snapshot of
+        # how the model BEHAVED that month. It gets its own table for the same
+        # reason evidence does: history has to be append-only. The raw payload
+        # and the derived numbers are both stored, so a figure an auditor saw
+        # last quarter is still that figure after the formulas change.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS measurements(
+                id SERIAL PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                period TEXT NOT NULL,
+                payload JSONB,
+                computed JSONB,
+                uploaded_by TEXT,
+                created_at TIMESTAMPTZ DEFAULT now(),
+                UNIQUE (asset_id, period)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS measurements_asset_idx ON measurements (asset_id)")
+
 
 def set_setting(key: str, value: str) -> None:
     with _connect() as conn:
@@ -229,6 +248,45 @@ def get_evidence(evidence_id: int) -> dict | None:
     with _connect() as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("SELECT filename, content_type, data FROM evidence WHERE id = %s", (evidence_id,))
+        return cur.fetchone()
+
+
+def save_measurement(asset_id: str, period: str, payload: dict, computed: dict, by: str) -> dict:
+    # re-uploading the same period REPLACES it: a corrected snapshot is a fix,
+    # not a second truth. The audit chain still records that it happened twice.
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            """INSERT INTO measurements (asset_id, period, payload, computed, uploaded_by)
+               VALUES (%s, %s, %s, %s, %s)
+               ON CONFLICT (asset_id, period) DO UPDATE SET
+                 payload=EXCLUDED.payload, computed=EXCLUDED.computed,
+                 uploaded_by=EXCLUDED.uploaded_by, created_at=now()
+               RETURNING id, asset_id, period, computed, uploaded_by, created_at""",
+            (asset_id, period, Jsonb(jsonable_encoder(payload)), Jsonb(jsonable_encoder(computed)), by),
+        )
+        return cur.fetchone()
+
+
+def list_measurements(asset_id: str) -> list[dict]:
+    # oldest first: the panel draws a trend, and a trend reads left to right
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            """SELECT period, computed, uploaded_by, created_at
+               FROM measurements WHERE asset_id = %s ORDER BY period""",
+            (asset_id,),
+        )
+        return cur.fetchall()
+
+
+def latest_measurement(asset_id: str) -> dict | None:
+    with _connect() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(
+            "SELECT period, computed FROM measurements WHERE asset_id = %s ORDER BY period DESC LIMIT 1",
+            (asset_id,),
+        )
         return cur.fetchone()
 
 

@@ -45,50 +45,75 @@ def _append_sweep_result(asset_id: str, agent_name: str, findings: list, note: s
     store.save(state)
 
 
+def rescore_one(state: dict) -> dict | None:
+    """Re-apply THIS asset's policy pack to THIS asset. Deterministic, free, no
+    model call. Old policy findings are replaced; findings by anyone else
+    (framework, drift, fairness) are kept, because this pack has nothing to say
+    about them. Mutates and returns a summary; the CALLER saves the state.
+
+    Honest scope, unchanged from before: the EU tier is the model's judgement,
+    so a re-score never moves the tier. It moves the flags.
+    """
+    pack = packs.load_policy_pack(packs.chosen(state)["policy"])
+    asset = dict(state.get("asset", {}))
+    assessment = dict(asset.get("assessment") or {})
+    if not assessment:
+        return None  # never invent an assessment for an asset nobody assessed
+    old = assessment.get("findings", [])
+    kept = [f for f in old if f.get("inspector") != "policy_compliance"]
+    fired = [rule for rule in pack["rules"] if packs.fires(rule, asset)]
+    for n, rule in enumerate(fired, start=1):
+        kept.append({
+            "finding_id": f"f-{state['asset_id']}-pol-{n}",
+            "inspector": "policy_compliance",
+            "control_id": rule["id"],
+            "severity": rule["severity"],
+            "plain": rule["title"],
+            "evidence": f"rule {rule['id']} of pack {pack['pack_id']} matches this asset's record",
+            "remediation": f"Bring the asset in line with {rule['id']} or retire it.",
+            "status": "open",
+        })
+    before = {f.get("finding_id") for f in old}
+    after = {f["finding_id"] for f in kept}
+    assessment["findings"] = kept
+    assessment["risk"] = risk_rollup(kept)
+    assessment["decision"] = "flagged" if kept else "compliant"
+    asset["assessment"] = assessment
+    state["asset"] = asset
+    state["risk"] = assessment["risk"]
+    state["decision"] = assessment["decision"]
+    return {
+        "pack": pack["pack_id"],
+        "changed": before != after,
+        "added": sorted(x for x in after - before if x),
+        "removed": sorted(x for x in before - after if x),
+        "findings": len(kept),
+    }
+
+
 def rescore_policy() -> dict:
-    """The pack-swap moment (NFR-1): re-apply the ACTIVE policy pack's rules to
-    every asset, deterministically, $0. Old policy findings are replaced with
-    the new pack's; findings by other inspectors (framework, drift) are kept.
-    Honest scope: EU-tier re-tiering needs the model, so tiers do not move here."""
-    pack = packs.load_policy_pack()
+    """The estate-wide pack-swap moment (NFR-1), now a loop over rescore_one so
+    there is exactly ONE definition of what a pack says about an asset."""
     rows = store.list_all()
     changed = 0
+    pack_id = ""
     for r in rows:
         state = store.get(r["asset_id"])
         if state is None:
             continue
-        asset = dict(state.get("asset", {}))
-        assessment = dict(asset.get("assessment") or {})
-        if not assessment:
-            continue  # never invent an assessment for an unassessed asset
-        old = assessment.get("findings", [])
-        kept = [f for f in old if f.get("inspector") != "policy_compliance"]
-        fired = [rule for rule in pack["rules"] if packs.fires(rule, asset)]
-        for n, rule in enumerate(fired, start=1):
-            kept.append({
-                "finding_id": f"f-{r['asset_id']}-pol-{n}",
-                "inspector": "policy_compliance",
-                "control_id": rule["id"],
-                "severity": rule["severity"],
-                "plain": rule["title"],
-                "evidence": f"rule {rule['id']} of pack {pack['pack_id']} matches this asset's record",
-                "remediation": f"Bring the asset in line with {rule['id']} or retire it.",
-                "status": "open",
-            })
-        if {f["finding_id"] for f in kept} == {f.get("finding_id") for f in old}:
+        result = rescore_one(state)
+        if result is None:
             continue
-        assessment["findings"] = kept
-        assessment["risk"] = risk_rollup(kept)
-        assessment["decision"] = "flagged" if kept else "compliant"
-        asset["assessment"] = assessment
-        state["asset"] = asset
-        state["risk"] = assessment["risk"]
-        state["decision"] = assessment["decision"]
-        state["audit"] = audit.chain(state.get("audit") or [],
-                                     [f"pack_swap re-score against {pack['pack_id']}: {len(fired)} policy finding(s)"])
+        pack_id = result["pack"]
+        if not result["changed"]:
+            continue
+        state["audit"] = audit.chain(
+            state.get("audit") or [],
+            [f"pack_swap re-score against {result['pack']}: {result['findings']} policy finding(s)"],
+        )
         store.save(state)
         changed += 1
-    return {"pack": pack["pack_id"], "assets_rescored": changed, "estate": _estate_stats()}
+    return {"pack": pack_id, "assets_rescored": changed, "estate": _estate_stats()}
 
 
 def run_sweep(limit: int = 10) -> dict:

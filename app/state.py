@@ -27,8 +27,10 @@ from app.audit import chain
 
 INSPECTORS = ["policy_compliance", "risk_assessment", "data_governance", "responsible_ai", "security_third_party"]
 
-# the nightly agents also write findings (drift, rule changes), on their own clock (D41)
-SWEEP_AGENTS = ["model_monitoring", "regulatory_intel"]
+# the nightly agents also write findings (drift, rule changes), on their own clock (D41).
+# fairness_monitoring is NOT an agent: it is plain arithmetic in app/fairness.py,
+# and it is listed here so valid_finding stops dropping its output unseen.
+SWEEP_AGENTS = ["model_monitoring", "regulatory_intel", "fairness_monitoring"]
 
 # the four EU AI Act tiers, worst first (framework pack detail lives in data/)
 RISK_TIERS = ("unacceptable", "high", "limited", "minimal")

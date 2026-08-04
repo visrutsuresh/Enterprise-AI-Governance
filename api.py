@@ -15,11 +15,11 @@ from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 
-from app import audit, precedent, ratelimit, store, sweep
+from app import audit, fairness as fair, packs as pk, precedent, ratelimit, store, sweep
 from app.agents import approval_workflow_agent, executive_advisory_agent
 from app.graph import graph, initial_state
-from app.state import RISK_TIERS
-from app.schemas import UserCreate, UserUpdate
+from app.state import RISK_TIERS, risk_rollup
+from app.schemas import EDITABLE_FIELDS, SCORING_FIELDS, UserCreate, UserUpdate, clean_edit, valid_asset
 from app.users import (
     User,
     UserManager,
@@ -825,6 +825,398 @@ async def deactivate_account(user_id: uuid.UUID, user: User = Depends(require_ad
             raise HTTPException(status_code=400, detail="you cannot deactivate your own account")
         await db.update(target, {"is_active": False})
         return {"id": str(target.id), "deactivated": True}
+
+
+# --- the editable record ----------------------------------------------------
+#
+# Every finding in the estate is derived from the asset record. If the inventory
+# agent misread the description, the rule never fires, and the hash chain then
+# faithfully records a wrong assessment. These routes are what stop the audit
+# trail from proving that nobody corrected something wrong from the start.
+
+
+def _rescore_and_save(state: dict, notes: list, by: str) -> dict:
+    """The ONE place a record change is written: re-score, chain it, save it."""
+    result = sweep.rescore_one(state)
+    if result and result["changed"]:
+        notes.append(
+            f"re-scored against {result['pack']}: {len(result['added'])} finding(s) added, "
+            f"{len(result['removed'])} no longer apply"
+        )
+    state["audit"] = audit.chain_as(state.get("audit") or [], notes, by=by)
+    store.save(state)
+    return result or {"changed": False, "added": [], "removed": [], "findings": 0}
+
+
+class RecordPatchIn(BaseModel):
+    fields: dict  # {"human_oversight": "Priya Raman, Credit Risk"}
+    reason: str = ""
+
+
+@app.patch("/assets/{asset_id}")
+def edit_record(asset_id: str, payload: RecordPatchIn, user: User = Depends(require_reviewer)):
+    if not payload.fields:
+        raise HTTPException(status_code=422, detail=f"send at least one of: {', '.join(EDITABLE_FIELDS)}")
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    asset = dict(state.get("asset") or {})
+
+    cleaned = {}
+    for key, raw in payload.fields.items():
+        value, err = clean_edit(key, raw)
+        if err:
+            raise HTTPException(status_code=422, detail=err)
+        cleaned[key] = value
+
+    notes, touched_scoring = [], False
+    provenance = dict(state.get("field_source") or {})
+    now = datetime.now(timezone.utc).isoformat()
+    for key, value in cleaned.items():
+        was = asset.get(key)
+        if was == value:
+            continue
+        asset[key] = value
+        # field-level provenance: the UI marks which values a HUMAN stands
+        # behind, which makes the seed/pipeline badge honest per field, not
+        # only per asset
+        provenance[key] = {"was": was, "by": user.email, "at": now}
+        notes.append(
+            f"record_edit: {asset_id} {key} {was!r} -> {value!r} by {user.email}"
+            + (f" ({payload.reason.strip()})" if payload.reason.strip() else "")
+        )
+        if key in SCORING_FIELDS:
+            touched_scoring = True
+    if not notes:
+        raise HTTPException(status_code=409, detail="nothing changed: those values are already on the record")
+
+    state["asset"] = asset
+    state["field_source"] = provenance
+    if touched_scoring:
+        rescore = _rescore_and_save(state, notes, user.email)
+    else:
+        state["audit"] = audit.chain_as(state.get("audit") or [], notes, by=user.email)
+        store.save(state)
+        rescore = {"changed": False, "added": [], "removed": [], "findings": 0}
+    return {"asset_id": asset_id, "edited": list(cleaned), "rescore": rescore}
+
+
+class ManualAssetIn(BaseModel):
+    name: str
+    owner: str
+    purpose: str
+    type: str = "model"
+    lifecycle: str = "development"
+    deployment: str = ""
+    data_touched: list = []
+    third_party: str | None = None
+    human_oversight: str = ""
+    business_unit: str = ""
+    region: str = ""
+    protected_attributes: list = []
+
+
+@app.post("/assets/manual")
+def register_manual(payload: ManualAssetIn, user: User = Depends(require_reviewer)):
+    """Registration without the model. Some owners already know every answer, and
+    typing a paragraph for an agent to re-parse is theatre. source='manual' keeps
+    the provenance badge honest: no pipeline ever ran on this record."""
+    asset_id = f"AI-{uuid.uuid4().hex[:8]}"
+    asset = {
+        **payload.model_dump(),
+        "asset_id": asset_id,
+        "source": "manual",
+        "last_bias_test_at": None,
+        # the shell has to exist before rescore_one will touch it: that function
+        # deliberately refuses to invent an assessment for an unassessed asset
+        "assessment": {"risk_tier": "", "findings": [], "risk": {}, "inspector_status": {}},
+    }
+    if not valid_asset(asset):
+        raise HTTPException(
+            status_code=422,
+            detail="name, owner, purpose, a valid type and a valid lifecycle are all required",
+        )
+    state = {
+        "asset_id": asset_id, "status": "assessed", "stage": "done", "description": "",
+        "asset": asset, "applicable_inspectors": [], "findings_raw": [], "inspector_reports": [],
+        "risk_tier": "", "risk": {}, "decision": "", "audit": [], "error": None,
+        "field_source": {}, "packs": {}, "controls": {},
+    }
+    result = _rescore_and_save(state, [f"manual_register: {asset_id} entered by {user.email}"], user.email)
+    return {"asset_id": asset_id, "status": "assessed", "rescore": result}
+
+
+# --- per-asset rulebooks ----------------------------------------------------
+
+
+class AssetPacksIn(BaseModel):
+    policy: str | None = None
+    framework: str | None = None
+    extra_frameworks: list[str] = []
+    reason: str = ""
+
+
+@app.get("/packs/available")
+def packs_available(user: User = Depends(require_reviewer)):
+    return pk.available()
+
+
+@app.put("/assets/{asset_id}/packs")
+def set_asset_packs(asset_id: str, payload: AssetPacksIn, user: User = Depends(require_reviewer)):
+    """Scoping is a judgement, so it carries a reason, exactly like a tier override."""
+    if not payload.reason.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="say why this scope applies: a scoping change with no reason is what an auditor objects to",
+        )
+    avail = pk.available()
+    for name, bucket in ((payload.policy, "policy_packs"), (payload.framework, "framework_packs")):
+        if name and name not in avail[bucket]:
+            raise HTTPException(status_code=404, detail=f"no pack named {name!r} in {bucket}")
+    for name in payload.extra_frameworks:
+        if name not in avail["framework_packs"]:
+            raise HTTPException(status_code=404, detail=f"no pack named {name!r} in framework_packs")
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    current = pk.chosen(state)
+    state["packs"] = {
+        "policy": payload.policy or current["policy"],
+        "framework": payload.framework or current["framework"],
+        "extra_frameworks": payload.extra_frameworks,
+    }
+    note = (
+        f"pack_scope: {asset_id} policy={state['packs']['policy']} "
+        f"framework={'+'.join([state['packs']['framework']] + payload.extra_frameworks)} "
+        f"by {user.email} ({payload.reason.strip()})"
+    )
+    result = _rescore_and_save(state, [note], user.email)
+    return {"asset_id": asset_id, "packs": state["packs"], "rescore": result}
+
+
+# --- control attestation ----------------------------------------------------
+#
+# The framework packs hold PROSE requirements ("a named human can understand,
+# intervene on, and override the output"). No code can honestly decide whether
+# that is met, and pretending otherwise would be the worst thing this product
+# could do. So a person says, and signs, and it lands on the chain.
+
+CONTROL_STATUSES = ("met", "not_met", "not_applicable")
+
+
+class ControlIn(BaseModel):
+    status: str
+    note: str = ""
+
+
+@app.get("/assets/{asset_id}/controls")
+def list_controls(asset_id: str, user: User = Depends(require_reviewer)):
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    tier = (state.get("risk_tier") or (state.get("asset", {}).get("assessment") or {}).get("risk_tier") or "").lower()
+    attested = state.get("controls") or {}
+    chosen = pk.chosen(state)
+    out = []
+    for name in [chosen["framework"]] + chosen["extra_frameworks"]:
+        if not name:
+            continue
+        try:
+            pack = pk.load_framework_pack(name)
+        except RuntimeError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        for t in pack.get("tiers", []):
+            # an untiered asset shows every tier's controls rather than none:
+            # over-showing is better than implying nothing applies
+            if tier and t["tier"] != tier:
+                continue
+            for c in t.get("controls", []):
+                out.append({"framework": pack["pack_id"], "tier": t["tier"], **c,
+                            "attested": attested.get(c["id"])})
+    return {"asset_id": asset_id, "tier": tier or None, "controls": out}
+
+
+@app.put("/assets/{asset_id}/controls/{control_id}")
+def attest_control(asset_id: str, control_id: str, payload: ControlIn, user: User = Depends(require_reviewer)):
+    if payload.status not in CONTROL_STATUSES:
+        raise HTTPException(status_code=422, detail=f"status must be one of: {', '.join(CONTROL_STATUSES)}")
+    if payload.status != "met" and not payload.note.strip():
+        raise HTTPException(status_code=422, detail="a control that is not met needs a note saying what is missing")
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    controls = dict(state.get("controls") or {})
+    controls[control_id] = {
+        "status": payload.status,
+        "note": payload.note.strip(),
+        "by": user.email,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    state["controls"] = controls
+    state["audit"] = audit.chain_as(
+        state.get("audit") or [],
+        [f"control_attested: {asset_id} {control_id} {payload.status} by {user.email}"
+         + (f" ({payload.note.strip()})" if payload.note.strip() else "")],
+        by=user.email,
+    )
+    store.save(state)
+    return {"asset_id": asset_id, "control_id": control_id, **controls[control_id]}
+
+
+# --- measurement: bias and drift as numbers, not opinions -------------------
+
+
+class MeasurementIn(BaseModel):
+    period: str                      # "2026-07"
+    groups: dict                     # {"18-25": {"tp":..,"fp":..,"fn":..,"tn":..}, ...}
+    protected_attribute: str = "unstated"
+    n: int | None = None
+    features: dict = {}
+    scores: dict | None = None
+    performance: dict = {}
+    metric: str | None = None        # which definition of fair binds this asset
+
+
+def _apply_measurement(state: dict, payload: dict, metric_key: str, by: str) -> dict:
+    computed = fair.compute(payload)
+    asset = dict(state.get("asset", {}))
+    assessment = dict(asset.get("assessment") or {})
+    # replace THIS checker's findings and leave everyone else's alone, the same
+    # rule rescore_one follows for the policy pack
+    kept = [f for f in assessment.get("findings", []) if f.get("inspector") != "fairness_monitoring"]
+    kept += fair.findings_from(state["asset_id"], computed, metric_key)
+    assessment["findings"] = kept
+    assessment["risk"] = risk_rollup(kept)
+    assessment["decision"] = "flagged" if kept else "compliant"
+    asset["assessment"] = assessment
+    state["asset"] = asset
+    state["risk"] = assessment["risk"]
+    state["decision"] = assessment["decision"]
+    state["fairness_metric"] = metric_key
+    store.save_measurement(state["asset_id"], payload["period"], payload, computed, by)
+    f = computed["fairness"]
+    state["audit"] = audit.chain_as(
+        state.get("audit") or [],
+        [f"measurement: {state['asset_id']} {payload['period']} n={computed['n']} "
+         f"{fair.METRICS[metric_key]['short']}={f[metric_key]:.3f} "
+         f"({'within threshold' if fair.metric_pass(metric_key, computed) else 'BREACH'}) by {by}"],
+        by=by,
+    )
+    store.save(state)
+    return computed
+
+
+@app.post("/assets/{asset_id}/measurements")
+def add_measurement(asset_id: str, payload: MeasurementIn, user: User = Depends(require_reviewer)):
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    metric_key = payload.metric or state.get("fairness_metric") or fair.DEFAULT_METRIC
+    if metric_key not in fair.METRICS:
+        raise HTTPException(status_code=422, detail=f"metric must be one of: {', '.join(fair.METRICS)}")
+    try:
+        computed = _apply_measurement(state, payload.model_dump(), metric_key, user.email)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=422, detail=f"that snapshot could not be measured: {e}")
+    return {"asset_id": asset_id, "period": payload.period, "computed": computed}
+
+
+@app.post("/assets/{asset_id}/measurements/csv")
+async def add_measurement_csv(
+    asset_id: str,
+    period: str,
+    protected_attribute: str = "group",
+    file: UploadFile = File(...),
+    user: User = Depends(require_reviewer),
+):
+    """Three columns, one row per decision: group, prediction, label.
+    The ten-second path for an owner who has a spreadsheet and no pipeline."""
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    raw = (await file.read()).decode("utf-8", errors="replace")
+    rows, bad = [], 0
+    for i, line in enumerate(csv.reader(io.StringIO(raw))):
+        if len(line) < 3:
+            bad += 1
+            continue
+        group, pred, label = line[0].strip(), line[1].strip(), line[2].strip()
+        if i == 0 and not pred.isdigit():
+            continue  # a header row is not an error
+        if pred not in ("0", "1") or label not in ("0", "1"):
+            bad += 1
+            continue
+        rows.append((group, int(pred), int(label)))
+    if not rows:
+        raise HTTPException(status_code=422, detail="no usable rows: expected group,prediction,label with 0/1 values")
+    payload = {
+        "period": period,
+        "protected_attribute": protected_attribute,
+        "groups": fair.from_rows(rows),
+        "features": {},
+        "scores": None,
+        "performance": {},
+    }
+    metric_key = state.get("fairness_metric") or fair.DEFAULT_METRIC
+    try:
+        computed = _apply_measurement(state, payload, metric_key, user.email)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=422, detail=f"that file could not be measured: {e}")
+    return {"asset_id": asset_id, "period": period, "rows_used": len(rows),
+            "rows_ignored": bad, "computed": computed}
+
+
+@app.get("/assets/{asset_id}/measurements")
+def get_measurements(asset_id: str, user: User = Depends(require_reviewer)):
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    return {
+        "asset_id": asset_id,
+        "metric": state.get("fairness_metric") or fair.DEFAULT_METRIC,
+        "metrics_catalogue": fair.METRICS,
+        "periods": store.list_measurements(asset_id),
+    }
+
+
+class MetricIn(BaseModel):
+    metric: str
+    reason: str
+
+
+@app.put("/assets/{asset_id}/fairness-metric")
+def bind_metric(asset_id: str, payload: MetricIn, user: User = Depends(require_reviewer)):
+    """The fairness metrics are mathematically incompatible, so a platform that
+    just prints six numbers has passed the buck. The reviewer picks which one
+    binds this asset, says why, and that choice joins the chain."""
+    if payload.metric not in fair.METRICS:
+        raise HTTPException(status_code=422, detail=f"metric must be one of: {', '.join(fair.METRICS)}")
+    if not payload.reason.strip():
+        raise HTTPException(status_code=422, detail="say why this definition of fair fits this asset")
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    state["fairness_metric"] = payload.metric
+    latest = store.latest_measurement(asset_id)
+    if latest:
+        # the existing findings were written against the OLD definition, so they
+        # have to be rewritten or the screen would contradict itself
+        asset = dict(state.get("asset", {}))
+        assessment = dict(asset.get("assessment") or {})
+        kept = [f for f in assessment.get("findings", []) if f.get("inspector") != "fairness_monitoring"]
+        kept += fair.findings_from(asset_id, latest["computed"], payload.metric)
+        assessment["findings"] = kept
+        assessment["risk"] = risk_rollup(kept)
+        assessment["decision"] = "flagged" if kept else "compliant"
+        asset["assessment"] = assessment
+        state["asset"], state["risk"], state["decision"] = asset, assessment["risk"], assessment["decision"]
+    state["audit"] = audit.chain_as(
+        state.get("audit") or [],
+        [f"fairness_metric: {asset_id} bound to {payload.metric} by {user.email} ({payload.reason.strip()})"],
+        by=user.email,
+    )
+    store.save(state)
+    return {"asset_id": asset_id, "metric": payload.metric}
 
 
 @app.get("/metrics")
