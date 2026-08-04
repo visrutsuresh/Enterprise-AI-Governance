@@ -58,15 +58,15 @@ export default function LoginPage() {
       <form onSubmit={needsSetup ? setup : submit} className="panel w-full max-w-sm px-9 py-10">
         <div className="mb-8">
           <div
-            className="text-[32px] font-extrabold"
+            className="text-[30px] font-extrabold"
             style={{ fontFamily: "var(--font-cabinet)" }}
           >
             GOVERNANCE<span className="text-[var(--accent)]">.</span>
           </div>
-          <h1 className="text-[32px] font-bold mt-3">
+          <h1 className="text-[30px] font-bold mt-3">
             {needsSetup ? "First-time setup" : "Sign in"}
           </h1>
-          <p className="text-[15px] text-[var(--ink-soft)] mt-1">
+          <p className="text-[13px] text-[var(--ink-soft)] mt-1">
             {needsSetup
               ? "No accounts exist yet. Create the founding administrator; this screen never appears again."
               : "The AI governance control tower. No signup here: the admin creates every account."}
@@ -101,7 +101,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {error && <p className="text-[15px] text-[var(--rust)] mb-4">{error}</p>}
+        {error && <p className="text-[13px] text-[var(--rust)] mb-4">{error}</p>}
 
         <button
           type="submit"

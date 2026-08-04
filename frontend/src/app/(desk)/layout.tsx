@@ -38,7 +38,7 @@ export default function DeskLayout({
       <main className="min-h-[100dvh] bg-[var(--parchment)] flex items-center justify-center">
         <div className="text-center">
           <div
-            className="text-[32px] font-extrabold animate-pulse"
+            className="text-[30px] font-extrabold animate-pulse"
             style={{ fontFamily: "var(--font-cabinet)" }}
           >
             {brand.toUpperCase()}
@@ -54,7 +54,7 @@ export default function DeskLayout({
   const onWork = pathname === "/remediation";
   const onPeople = pathname === "/admin";
   const linkCls = (on: boolean) =>
-    `text-[15px] font-medium pb-1 border-b-2 transition-colors ${
+    `text-[13px] font-medium pb-1 border-b-2 transition-colors ${
       on
         ? "text-[var(--ink)] border-[var(--accent)]"
         : "text-[var(--ink-soft)] border-transparent hover:text-[var(--ink)]"
@@ -65,7 +65,7 @@ export default function DeskLayout({
       <div className="max-w-[1760px] mx-auto px-8">
         <header className="flex items-center gap-7 py-5 border-b border-[var(--line)]">
           <div
-            className="text-[24px] font-extrabold tracking-[0.02em]"
+            className="text-[22px] font-extrabold tracking-[0.02em]"
             style={{ fontFamily: "var(--font-cabinet)" }}
           >
             {brand.toUpperCase()}
@@ -84,17 +84,17 @@ export default function DeskLayout({
               </Link>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-3 text-[15px] text-[var(--ink-soft)]">
+          <div className="ml-auto flex items-center gap-3 text-[13px] text-[var(--ink-soft)]">
             <span>{user.email}</span>
             <span
-              className="w-7 h-7 rounded-full bg-[var(--accent)] text-white grid place-items-center text-[15px] font-bold"
+              className="w-7 h-7 rounded-full bg-[var(--accent)] text-white grid place-items-center text-[13px] font-bold"
               style={{ fontFamily: "var(--font-cabinet)" }}
             >
               {user.email.slice(0, 2).toUpperCase()}
             </span>
             <button
               onClick={signOut}
-              className="text-[15px] underline underline-offset-4 hover:text-[var(--accent)]"
+              className="text-[13px] underline underline-offset-4 hover:text-[var(--accent)]"
             >
               Sign out
             </button>

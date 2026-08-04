@@ -31,12 +31,20 @@ REVIEWERS = [email for email, _pw, role, _su in SEEDS if role == "reviewer"]
 # tamper-evident story the product is built on.
 SEEDED_FLOW = [
     # (status, due date in days from today or None, give it an owner)
+    # AWAITING EVIDENCE and CLOSED used to be one slot each in eight, and the
+    # board opens filtered to MINE, so both columns read empty on first look:
+    # the two states that prove remediation actually FINISHES were invisible.
+    # They now carry real weight.
     ("open", None, False),            # unassigned backlog, for the UNASSIGNED filter
     ("in_progress", 5, True),
-    ("open", 12, True),
     ("awaiting_evidence", 2, True),
-    ("in_progress", -3, True),        # already late, so OVERDUE is never empty
     ("closed", -10, True),
+    ("open", 12, True),
+    ("awaiting_evidence", 6, True),
+    ("closed", -22, True),
+    ("in_progress", -3, True),        # already late, so OVERDUE is never empty
+    ("awaiting_evidence", -1, True),  # evidence chased and overdue: a real state
+    ("closed", -40, True),
     ("open", None, False),
     ("dismissed", None, True),        # every board state is represented, including this one
 ]

@@ -105,7 +105,7 @@ function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
     return (
       <div className="border border-dashed border-[var(--line)] rounded-[3px] px-5 py-4">
         <div className="label">{label}</div>
-        <div className="text-[15px] text-[var(--ink-dim)] mt-2">not reported</div>
+        <div className="text-[13px] text-[var(--ink-dim)] mt-2">not reported</div>
       </div>
     );
   }
@@ -120,7 +120,7 @@ function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
     >
       <div className="label">{label}</div>
       <div
-        className={`text-[32px] leading-none mt-2 ${alarm ? "font-extrabold" : "font-semibold"}`}
+        className={`text-[30px] leading-none mt-2 ${alarm ? "font-extrabold" : "font-semibold"}`}
         style={{ fontFamily: "var(--font-cabinet)" }}
       >
         {shown}
@@ -129,14 +129,14 @@ function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
         // the word is the meaning. It reads on a projector, in greyscale, and
         // for anyone who cannot separate red from green.
         <div
-          className={`mt-1.5 text-[15px] uppercase tracking-[0.14em] font-bold ${
+          className={`mt-1.5 text-[13px] uppercase tracking-[0.14em] font-bold ${
             v.rank === 2 ? "text-[var(--ink)]" : v.rank === 1 ? "text-[var(--ink-soft)]" : "text-[var(--ink-dim)]"
           }`}
         >
           {v.word}
         </div>
       )}
-      {m.detail && <div className="text-[15px] text-[var(--ink-soft)] mt-2 leading-snug">{m.detail}</div>}
+      {m.detail && <div className="text-[13px] text-[var(--ink-soft)] mt-2 leading-snug">{m.detail}</div>}
     </div>
   );
 }
@@ -151,7 +151,7 @@ const EMPTY_REG = {
 // wrong is not cosmetic: the rule silently does not fire and the asset scores clean.
 function Label({ label, required, scoring }: { label: string; required?: boolean; scoring?: boolean }) {
   return (
-    <span className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)]">
+    <span className="text-[13px] uppercase tracking-wide text-[var(--ink-soft)]">
       {label}
       {required && <span className="text-[var(--rust)]"> *</span>}
       {scoring && <span className="text-[var(--accent)]" title="feeds the risk rules"> &bull;</span>}
@@ -170,7 +170,7 @@ function Field({ label, value, onChange, placeholder, required, scoring }: {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="field w-full mt-1 text-[15px]"
+        className="field w-full mt-1 text-[13px]"
       />
     </label>
   );
@@ -186,7 +186,7 @@ function Choice({ label, value, options, onChange, scoring }: {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="field w-full mt-1 text-[15px]"
+        className="field w-full mt-1 text-[13px]"
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -208,7 +208,7 @@ function SourceBadge({ source }: { source: string | null }) {
   return (
     <span
       title={seed ? "authored fixture, no pipeline ran" : "real pipeline output"}
-      className={`px-1.5 py-0.5 rounded-[3px] text-[15px] font-semibold uppercase tracking-wide ${
+      className={`px-1.5 py-0.5 rounded-[3px] text-[13px] font-semibold uppercase tracking-wide ${
         seed
           ? "bg-[var(--line)] text-[var(--ink-soft)]"
           : "bg-[var(--accent)] text-white"
@@ -224,6 +224,7 @@ export default function Tower() {
   const router = useRouter();
   const [loaded, setLoaded] = useState(false); // "nothing registered" must not show while loading
   const [regMode, setRegMode] = useState<"form" | "prose">("form");
+  const [regOpen, setRegOpen] = useState(false);
   const [reg, setReg] = useState(EMPTY_REG);
   const [rows, setRows] = useState<Row[]>([]);
   const [packs, setPacks] = useState<Packs | null>(null);
@@ -397,8 +398,8 @@ export default function Tower() {
 
   const stat = (label: string, value: React.ReactNode) => (
     <div className="border border-[var(--line)] rounded-[3px] px-5 py-4 bg-[var(--paper)]">
-      <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
-      <div className="text-[32px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
+      <div className="text-[13px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
+      <div className="text-[30px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
         {value}
       </div>
     </div>
@@ -406,8 +407,117 @@ export default function Tower() {
 
   return (
     <main className="py-8 space-y-6">
+      {/* collapsed by default. Registering is an occasional act, and expanded it
+          pushed the estate, the thing a reviewer actually looks at daily, below
+          the fold. The form-vs-prose switch lives inside it. */}
+      <section className="border border-[var(--line)] rounded-[3px] bg-[var(--paper)]">
+        <button
+          onClick={() => setRegOpen(!regOpen)}
+          aria-expanded={regOpen}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-[var(--wash)] transition-colors"
+        >
+          <span className="text-[14px] font-semibold">Register an AI system</span>
+          {!regOpen && (
+            <span className="text-[13px] text-[var(--ink-soft)]">
+              fill a form, or describe it in a sentence
+            </span>
+          )}
+          <span className="ml-auto text-[18px] text-[var(--ink-soft)]" aria-hidden>
+            {regOpen ? "−" : "+"}
+          </span>
+        </button>
+        {regOpen && (
+          <div className="px-5 pb-5 pt-4 space-y-3 border-t border-[var(--line)]">
+            <div className="flex items-center gap-4">
+              <div className="text-[13px] font-semibold">Register an AI system</div>
+              <div className="flex gap-1 ml-auto">
+                {(["form", "prose"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setRegMode(m)}
+                    className={`text-[13px] px-3 py-1 rounded-[3px] border transition-colors ${
+                      regMode === m
+                        ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                        : "border-[var(--line)] text-[var(--ink-soft)] hover:border-[var(--ink)]"
+                    }`}
+                  >
+                    {m === "form" ? "Fill a form" : "Describe it"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {regMode === "prose" ? (
+              <>
+                <p className="text-[13px] text-[var(--ink-soft)]">
+                  An agent reads the paragraph and fills the record, then the full assessment runs.
+                  Costs a model call, and you correct whatever it got wrong afterwards.
+                </p>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
+                  className="field w-full text-[13px]"
+                />
+                <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
+                  {busy === "register" ? "Registering..." : "Register and assess"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] text-[var(--ink-soft)]">
+                  You already know the answers, so type them. No model call and no cost: the policy
+                  rules score it the moment you save. Fields marked with a dot decide which rules fire.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Name" required value={reg.name} onChange={(v) => setReg({ ...reg, name: v })} />
+                  <Field label="Owner" required value={reg.owner} onChange={(v) => setReg({ ...reg, owner: v })}
+                         placeholder="a person and their team" />
+                  <Choice label="Type" scoring value={reg.type} options={["model", "agent"]}
+                          onChange={(v) => setReg({ ...reg, type: v })} />
+                  <Choice label="Lifecycle" scoring value={reg.lifecycle}
+                          options={["proposed", "development", "production", "retired"]}
+                          onChange={(v) => setReg({ ...reg, lifecycle: v })} />
+                  <div className="col-span-2">
+                    <Field label="Purpose" required value={reg.purpose}
+                           onChange={(v) => setReg({ ...reg, purpose: v })}
+                           placeholder="what decision does it make, and about whom" />
+                  </div>
+                  <Field label="Deployment" scoring value={reg.deployment}
+                         onChange={(v) => setReg({ ...reg, deployment: v })}
+                         placeholder="where it runs, e.g. vendor SaaS, on-prem" />
+                  <Field label="Third party" scoring value={reg.third_party}
+                         onChange={(v) => setReg({ ...reg, third_party: v })}
+                         placeholder="vendor name, or leave blank if in-house" />
+                  <Field label="Data touched" scoring value={reg.data_touched}
+                         onChange={(v) => setReg({ ...reg, data_touched: v })}
+                         placeholder="comma separated, e.g. customer PII, health" />
+                  <Field label="Human oversight" scoring value={reg.human_oversight}
+                         onChange={(v) => setReg({ ...reg, human_oversight: v })}
+                         placeholder="who checks it, or blank if nobody" />
+                  <Field label="Business unit" value={reg.business_unit}
+                         onChange={(v) => setReg({ ...reg, business_unit: v })} />
+                  <Field label="Region" value={reg.region} onChange={(v) => setReg({ ...reg, region: v })}
+                         placeholder="e.g. EU, SG" />
+                  <Field label="Protected attributes" value={reg.protected_attributes}
+                         onChange={(v) => setReg({ ...reg, protected_attributes: v })}
+                         placeholder="comma separated, e.g. age, gender" />
+                </div>
+                <button
+                  className="btn"
+                  disabled={busy !== "" || !reg.name.trim() || !reg.owner.trim() || !reg.purpose.trim()}
+                  onClick={registerManual}
+                >
+                  {busy === "manual" ? "Saving..." : "Register and score"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </section>
       {pollFailed && (
-        <p className="text-[15px] text-[var(--danger)]">
+        <p className="text-[13px] text-[var(--danger)]">
           Connection trouble: showing the last known estate, retrying every few seconds.
         </p>
       )}
@@ -422,12 +532,12 @@ export default function Tower() {
 
       {metrics && (
         <div className="space-y-5">
-          <h2 className="text-[19px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+          <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
             Executive dashboard
           </h2>
           {METRIC_GROUPS.map((g) => (
             <section key={g.key} className="space-y-2">
-              <div className="text-[15px] font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
+              <div className="text-[13px] font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
                 {g.title}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -442,13 +552,13 @@ export default function Tower() {
 
       <section className="border border-[var(--line)] rounded-[3px] p-5 bg-[var(--paper)] space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="text-[15px] font-semibold">Live packs:</div>
+          <div className="text-[13px] font-semibold">Live packs:</div>
           {packs && (
             <>
-              <span className="text-[15px] px-2 py-1 rounded bg-[var(--line)]">
+              <span className="text-[13px] px-2 py-1 rounded bg-[var(--line)]">
                 policy {packs.policy_pack.id} ({packs.policy_pack.rules} rules)
               </span>
-              <span className="text-[15px] px-2 py-1 rounded bg-[var(--line)]">
+              <span className="text-[13px] px-2 py-1 rounded bg-[var(--line)]">
                 framework {packs.framework_pack.id} ({packs.framework_pack.tiers} tiers)
               </span>
             </>
@@ -473,114 +583,27 @@ export default function Tower() {
             Executive brief
           </button>
         </div>
-        {notice && <div className="text-[15px] text-[var(--accent)]">{notice}</div>}
-        {brief && <p className="text-[15px] whitespace-pre-wrap border-t border-[var(--line)] pt-3">{brief}</p>}
+        {notice && <div className="text-[13px] text-[var(--accent)]">{notice}</div>}
+        {brief && <p className="text-[13px] whitespace-pre-wrap border-t border-[var(--line)] pt-3">{brief}</p>}
         {report && (
-          <p className="text-[15px] whitespace-pre-wrap border-t border-[var(--line)] pt-3">
+          <p className="text-[13px] whitespace-pre-wrap border-t border-[var(--line)] pt-3">
             <b>Overnight report:</b> {report}
           </p>
         )}
       </section>
 
-      <section className="border border-[var(--line)] rounded-[3px] p-5 bg-[var(--paper)] space-y-3">
-        <div className="flex items-center gap-4">
-          <div className="text-[15px] font-semibold">Register an AI system</div>
-          <div className="flex gap-1 ml-auto">
-            {(["form", "prose"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setRegMode(m)}
-                className={`text-[15px] px-3 py-1 rounded-[3px] border transition-colors ${
-                  regMode === m
-                    ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                    : "border-[var(--line)] text-[var(--ink-soft)] hover:border-[var(--ink)]"
-                }`}
-              >
-                {m === "form" ? "Fill a form" : "Describe it"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {regMode === "prose" ? (
-          <>
-            <p className="text-[15px] text-[var(--ink-soft)]">
-              An agent reads the paragraph and fills the record, then the full assessment runs.
-              Costs a model call, and you correct whatever it got wrong afterwards.
-            </p>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
-              className="field w-full text-[15px]"
-            />
-            <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
-              {busy === "register" ? "Registering..." : "Register and assess"}
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-[15px] text-[var(--ink-soft)]">
-              You already know the answers, so type them. No model call and no cost: the policy
-              rules score it the moment you save. Fields marked with a dot decide which rules fire.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Name" required value={reg.name} onChange={(v) => setReg({ ...reg, name: v })} />
-              <Field label="Owner" required value={reg.owner} onChange={(v) => setReg({ ...reg, owner: v })}
-                     placeholder="a person and their team" />
-              <Choice label="Type" scoring value={reg.type} options={["model", "agent"]}
-                      onChange={(v) => setReg({ ...reg, type: v })} />
-              <Choice label="Lifecycle" scoring value={reg.lifecycle}
-                      options={["proposed", "development", "production", "retired"]}
-                      onChange={(v) => setReg({ ...reg, lifecycle: v })} />
-              <div className="col-span-2">
-                <Field label="Purpose" required value={reg.purpose}
-                       onChange={(v) => setReg({ ...reg, purpose: v })}
-                       placeholder="what decision does it make, and about whom" />
-              </div>
-              <Field label="Deployment" scoring value={reg.deployment}
-                     onChange={(v) => setReg({ ...reg, deployment: v })}
-                     placeholder="where it runs, e.g. vendor SaaS, on-prem" />
-              <Field label="Third party" scoring value={reg.third_party}
-                     onChange={(v) => setReg({ ...reg, third_party: v })}
-                     placeholder="vendor name, or leave blank if in-house" />
-              <Field label="Data touched" scoring value={reg.data_touched}
-                     onChange={(v) => setReg({ ...reg, data_touched: v })}
-                     placeholder="comma separated, e.g. customer PII, health" />
-              <Field label="Human oversight" scoring value={reg.human_oversight}
-                     onChange={(v) => setReg({ ...reg, human_oversight: v })}
-                     placeholder="who checks it, or blank if nobody" />
-              <Field label="Business unit" value={reg.business_unit}
-                     onChange={(v) => setReg({ ...reg, business_unit: v })} />
-              <Field label="Region" value={reg.region} onChange={(v) => setReg({ ...reg, region: v })}
-                     placeholder="e.g. EU, SG" />
-              <Field label="Protected attributes" value={reg.protected_attributes}
-                     onChange={(v) => setReg({ ...reg, protected_attributes: v })}
-                     placeholder="comma separated, e.g. age, gender" />
-            </div>
-            <button
-              className="btn"
-              disabled={busy !== "" || !reg.name.trim() || !reg.owner.trim() || !reg.purpose.trim()}
-              onClick={registerManual}
-            >
-              {busy === "manual" ? "Saving..." : "Register and score"}
-            </button>
-          </>
-        )}
-      </section>
 
       <div className="flex items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search the register (name, id, owner, type)"
-          className="field flex-1 text-[15px]"
+          className="field flex-1 text-[13px]"
         />
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="field text-[15px]"
+          className="field text-[13px]"
         >
           <option value="">all tiers</option>
           {["unacceptable", "high", "limited", "minimal"].map((t) => (
@@ -592,21 +615,21 @@ export default function Tower() {
         <select
           value={flaggedOnly}
           onChange={(e) => setFlaggedOnly(e.target.value)}
-          className="field text-[15px]"
+          className="field text-[13px]"
         >
           <option value="">all assets</option>
           <option value="flagged">open flags only</option>
         </select>
         {(q || tierFilter || flaggedOnly) && (
-          <span className="text-[15px] text-[var(--ink-soft)]">
+          <span className="text-[13px] text-[var(--ink-soft)]">
             {shown.length} of {rows.length}
           </span>
         )}
       </div>
 
-      <table className="w-full text-[15px]">
+      <table className="w-full text-[13px]">
         <thead>
-          <tr className="text-left text-[15px] uppercase tracking-wide text-[var(--ink-soft)] border-b border-[var(--line)]">
+          <tr className="text-left text-[13px] uppercase tracking-wide text-[var(--ink-soft)] border-b border-[var(--line)]">
             <th className="py-2 pr-3">Asset</th>
             <th className="py-2 pr-3">Type</th>
             <th className="py-2 pr-3">Lifecycle</th>
@@ -643,7 +666,7 @@ export default function Tower() {
                 <Link href={`/assets/${r.asset_id}`} className="font-medium hover:text-[var(--accent)]">
                   {r.name || r.asset_id}
                 </Link>
-                <span className="ml-2 text-[15px] text-[var(--ink-soft)]">{r.asset_id}</span>
+                <span className="ml-2 text-[13px] text-[var(--ink-soft)]">{r.asset_id}</span>
               </td>
               <td className="py-2.5 pr-3">{r.type || "-"}</td>
               <td className="py-2.5 pr-3">{r.lifecycle || "-"}</td>

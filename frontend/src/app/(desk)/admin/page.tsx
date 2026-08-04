@@ -94,7 +94,7 @@ export default function People() {
   return (
     <main className="py-9 pb-16 max-w-[1100px]">
       <h1
-        className="text-[32px] font-bold rise"
+        className="text-[30px] font-bold rise"
         style={{ "--i": 0 } as React.CSSProperties}
       >
         People
@@ -135,7 +135,7 @@ export default function People() {
       </form>
 
       {note && (
-        <p className="text-[15px] text-[var(--accent-deep)] mb-4">{note}</p>
+        <p className="text-[13px] text-[var(--accent-deep)] mb-4">{note}</p>
       )}
 
       {!people ? (
@@ -147,8 +147,8 @@ export default function People() {
               key={p.id}
               className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 items-center py-3.5 px-1 border-b border-[var(--line)]"
             >
-              <span className="font-semibold text-[15px]">{p.email}</span>
-              <span className="font-array text-[15px] text-[var(--ink-soft)]">
+              <span className="font-semibold text-[13px]">{p.email}</span>
+              <span className="font-array text-[13px] text-[var(--ink-soft)]">
                 {p.role.toUpperCase()}
               </span>
               <span

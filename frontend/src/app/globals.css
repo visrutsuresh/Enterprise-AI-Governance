@@ -83,8 +83,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-gsans), sans-serif;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 h1,
@@ -94,9 +94,13 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+/* was var(--font-array), a pixel display face. Unreadable at label sizes and
+   it made every date and id look like a retro game. Tabular figures instead, so
+   numbers line up in a column. */
 .font-array {
-  font-family: var(--font-array), monospace;
-  letter-spacing: 0.03em;
+  font-family: var(--font-gsans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- the one raised-surface class ---------- */
@@ -128,7 +132,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px 14px;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink);
   outline: none;
   transition: border-color 0.15s var(--ease);
@@ -157,16 +161,18 @@ h3 {
 /* ---------- small shared pieces ---------- */
 
 .label {
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
 }
 
 .badge {
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.12em;
   padding: 4px 9px;
   border-radius: 2px;
@@ -203,8 +209,9 @@ h3 {
 /* THE SEVERITY SCALE. Three weights, no hue. Anything showing how bad
    something is uses one of these, so the whole app agrees. */
 .sev {
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
@@ -295,7 +302,7 @@ h3 {
   background: var(--attn-bg);
   border-radius: 10px;
   padding: 11px 15px;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--attn-ink);
 }
 
@@ -305,7 +312,7 @@ h3 {
   border-left: 3px solid var(--accent);
   border-radius: 0 var(--radius) var(--radius) 0;
   padding: 14px 20px;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink);
   margin-bottom: 20px;
 }
@@ -320,12 +327,12 @@ h3 {
   transition: all 0.3s var(--ease);
 }
 .clause h3 {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   margin-bottom: 5px;
 }
 .clause p {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 .clause.flagged {
@@ -358,8 +365,9 @@ h3 {
 }
 
 .fmark {
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   float: right;
@@ -397,13 +405,14 @@ h3 {
   gap: 10px;
 }
 .rl-head h3 {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 .rl-state {
   margin-left: auto;
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -424,18 +433,18 @@ h3 {
 }
 .rl-quiet {
   padding: 12px 16px;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
 .plainline {
   font-family: var(--font-cabinet), sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
   margin-bottom: 4px;
 }
 .termline {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
@@ -445,7 +454,7 @@ h3 {
   margin: 12px 0;
 }
 .trio > div {
-  font-size: 15px;
+  font-size: 13px;
   padding: 9px 12px;
   border-radius: 7px;
 }
@@ -459,8 +468,9 @@ h3 {
   background: var(--amber-wash);
 }
 .trio b {
-  font-family: var(--font-array), monospace;
-  font-size: 15px;
+  font-family: var(--font-gsans), ui-sans-serif, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   display: block;
@@ -469,7 +479,7 @@ h3 {
 }
 
 .diff {
-  font-size: 15px;
+  font-size: 13px;
   background: var(--paper);
   border: none;
   box-shadow: var(--press);
@@ -490,7 +500,7 @@ h3 {
   font-weight: 500;
 }
 .who {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -498,7 +508,7 @@ h3 {
 .act {
   font-family: var(--font-cabinet), sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
   padding: 9px 16px;
   border-radius: 9px;
   border: 1px solid transparent;
@@ -533,7 +543,7 @@ h3 {
 }
 
 .verdict {
-  font-size: 15px;
+  font-size: 13px;
   padding: 9px 12px;
   border-radius: 9px;
   margin-top: 10px;
@@ -566,7 +576,7 @@ h3 {
 .finish {
   font-family: var(--font-cabinet), sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
   padding: 10px 20px;
   border-radius: 9px;
   border: none;
@@ -592,7 +602,7 @@ h3 {
 .doc {
   white-space: pre-wrap;
   font-family: var(--font-gsans), sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.7;
   background: var(--paper);
   border: none;
@@ -624,7 +634,7 @@ h3 {
   background: #fff;
   border: 1.5px solid var(--ink);
   color: var(--ink);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
@@ -655,3 +665,20 @@ h3 {
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* the calendar button sat at the far right edge of a wide input, disconnected
+   from the date it belongs to. Pull it in next to the text. */
+input[type="date"] {
+  position: relative;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  left: 0;
+  margin: 0;
+  padding: 0 4px 0 0;
+  opacity: 0.55;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
