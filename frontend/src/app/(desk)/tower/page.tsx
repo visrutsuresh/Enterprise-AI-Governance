@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { api, readable } from "@/lib/api";
 import { STAGES, TIER_COLORS } from "@/lib/stages";
 import { useUser } from "@/lib/useUser";
 
@@ -24,7 +25,14 @@ type Packs = {
   framework_pack: { id: string; name: string; tiers: number };
 };
 
-type Metric = { value: number | string; detail?: string; sample?: boolean; unit?: string };
+type Metric = {
+  value: number | string;
+  detail?: string;
+  unit?: string;
+  tone?: "flat" | "higher_better" | "lower_better";
+  good?: number; // at or past this, the number is healthy
+  bad?: number; // at or past this, it needs attention
+};
 type Metrics = Record<string, Record<string, Metric>>;
 
 const METRIC_GROUPS: { key: string; title: string; metrics: { key: string; label: string }[] }[] = [
@@ -53,52 +61,130 @@ const METRIC_GROUPS: { key: string; title: string; metrics: { key: string; label
     title: "Compliance",
     metrics: [
       { key: "compliance_score", label: "Compliance Score" },
-      { key: "regulatory_readiness", label: "Regulatory Readiness" },
       { key: "audit_findings", label: "Audit Findings" },
-      { key: "approval_status", label: "Approval Status" },
+      { key: "approval_status", label: "Awaiting a Decision" },
     ],
   },
   {
     key: "responsible_ai",
     title: "Responsible AI",
     metrics: [
-      { key: "bias_assessment", label: "Bias Assessment Status" },
-      { key: "explainability_coverage", label: "Explainability Coverage" },
+      { key: "bias_assessment", label: "Open Bias Findings" },
       { key: "human_oversight", label: "Human Oversight Compliance" },
-      { key: "model_transparency", label: "Model Transparency Score" },
     ],
   },
   {
     key: "operational",
     title: "Operational",
     metrics: [
-      { key: "model_performance", label: "Model Performance" },
       { key: "model_drift_incidents", label: "Model Drift Incidents" },
       { key: "security_findings", label: "Security Findings" },
-      { key: "sla_compliance", label: "Governance SLA Compliance" },
     ],
   },
 ];
 
+// Is this number good news or bad? A dashboard of undifferentiated digits makes
+// the reader do the judging, which is the one thing a governance dashboard is
+// supposed to do for them. Returns a colour, or null for counts that are neither.
+function verdictOf(m: Metric): { colour: string; word: string } | null {
+  if (!m.tone || m.tone === "flat" || typeof m.value !== "number") return null;
+  if (m.good === undefined || m.bad === undefined) return null;
+  const healthy = m.tone === "higher_better" ? m.value >= m.good : m.value <= m.good;
+  const poor = m.tone === "higher_better" ? m.value <= m.bad : m.value >= m.bad;
+  if (healthy) return { colour: "var(--olive)", word: "healthy" };
+  if (poor) return { colour: "var(--rust)", word: "needs attention" };
+  return { colour: "var(--amber)", word: "watch" };
+}
+
 function MetricTile({ label, m }: { label: string; m: Metric | undefined }) {
-  if (!m) return null;
+  // a metric the backend did not report must say so, not quietly leave a gap in
+  // the row that reads as "we looked and there was nothing"
+  if (!m) {
+    return (
+      <div className="border border-dashed border-[var(--line)] rounded-xl px-5 py-4">
+        <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
+        <div className="text-[13px] text-[var(--ink-soft)] mt-2">not reported</div>
+      </div>
+    );
+  }
   const shown = m.unit ? `${m.value}${m.unit}` : m.value;
+  const v = verdictOf(m);
   return (
-    <div className="relative border border-[var(--line)] rounded-xl px-5 py-4 bg-[var(--paper)]">
-      {m.sample && (
-        <span
-          title="labelled sample: no real estate signal for this metric yet, shown as an illustrative placeholder"
-          className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wide bg-[var(--line)] text-[var(--ink-soft)]"
-        >
-          sample
-        </span>
-      )}
-      <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)] pr-12">{label}</div>
-      <div className="text-[26px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
+    <div
+      className="relative border rounded-xl px-5 py-4 bg-[var(--paper)]"
+      style={{ borderColor: v ? v.colour : "var(--line)" }}
+    >
+      <div className="text-[12px] uppercase tracking-wide text-[var(--ink-soft)]">{label}</div>
+      <div
+        className="text-[26px] font-extrabold"
+        style={{ fontFamily: "var(--font-cabinet)", color: v ? v.colour : undefined }}
+      >
         {shown}
       </div>
+      {v && (
+        // the word carries the meaning too, so this still reads on a projector,
+        // in greyscale, and for anyone who cannot separate red from green
+        <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: v.colour }}>
+          {v.word}
+        </div>
+      )}
       {m.detail && <div className="text-[11px] text-[var(--ink-soft)] mt-1 leading-snug">{m.detail}</div>}
     </div>
+  );
+}
+
+const EMPTY_REG = {
+  name: "", owner: "", purpose: "", type: "model", lifecycle: "development",
+  deployment: "", third_party: "", data_touched: "", human_oversight: "",
+  business_unit: "", region: "", protected_attributes: "",
+};
+
+// the dot marks a field the policy rules actually read. Getting one of these
+// wrong is not cosmetic: the rule silently does not fire and the asset scores clean.
+function Label({ label, required, scoring }: { label: string; required?: boolean; scoring?: boolean }) {
+  return (
+    <span className="text-[11px] uppercase tracking-wide text-[var(--ink-soft)]">
+      {label}
+      {required && <span className="text-[var(--rust)]"> *</span>}
+      {scoring && <span className="text-[var(--accent)]" title="feeds the risk rules"> &bull;</span>}
+    </span>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, required, scoring }: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; required?: boolean; scoring?: boolean;
+}) {
+  return (
+    <label className="block">
+      <Label label={label} required={required} scoring={scoring} />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full mt-1 text-[13px] bg-[var(--parchment)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 placeholder:text-[var(--ink-soft)]"
+      />
+    </label>
+  );
+}
+
+function Choice({ label, value, options, onChange, scoring }: {
+  label: string; value: string; options: string[];
+  onChange: (v: string) => void; scoring?: boolean;
+}) {
+  return (
+    <label className="block">
+      <Label label={label} scoring={scoring} />
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-1 text-[13px] bg-[var(--parchment)] border border-[var(--line)] rounded-lg px-2.5 py-1.5"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -132,6 +218,10 @@ function SourceBadge({ source }: { source: string | null }) {
 
 export default function Tower() {
   const { user } = useUser();
+  const router = useRouter();
+  const [loaded, setLoaded] = useState(false); // "nothing registered" must not show while loading
+  const [regMode, setRegMode] = useState<"form" | "prose">("form");
+  const [reg, setReg] = useState(EMPTY_REG);
   const [rows, setRows] = useState<Row[]>([]);
   const [packs, setPacks] = useState<Packs | null>(null);
   const [description, setDescription] = useState("");
@@ -175,9 +265,13 @@ export default function Tower() {
     api("/assets")
       .then((r) => {
         setRows(r);
+        setLoaded(true);
         setPollFailed(false);
       })
-      .catch(() => setPollFailed(true));
+      .catch(() => {
+        setLoaded(true);
+        setPollFailed(true);
+      });
     api("/packs").then(setPacks).catch(() => {});
     api("/metrics").then(setMetrics).catch(() => {});
   }, []);
@@ -198,6 +292,31 @@ export default function Tower() {
       refresh();
     } catch (e) {
       setNotice(String(e));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function registerManual() {
+    setBusy("manual");
+    setNotice("");
+    try {
+      const list = (s: string) =>
+        s.split(",").map((x) => x.trim()).filter(Boolean);
+      const r = await api("/assets/manual", {
+        method: "POST",
+        body: JSON.stringify({
+          ...reg,
+          data_touched: list(reg.data_touched),
+          protected_attributes: list(reg.protected_attributes),
+          third_party: reg.third_party.trim() || null,
+        }),
+      });
+      setReg(EMPTY_REG);
+      setNotice(`Registered ${r.asset_id} and scored against the policy pack. No model call.`);
+      refresh();
+    } catch (e) {
+      setNotice(readable(e));
     } finally {
       setBusy("");
     }
@@ -360,18 +479,92 @@ export default function Tower() {
         )}
       </section>
 
-      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-2">
-        <div className="text-[14px] font-semibold">Register an AI system</div>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
-          className="w-full border border-[var(--line)] rounded-lg p-3 text-[13.5px] bg-[var(--parchment)]"
-        />
-        <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
-          {busy === "register" ? "Registering..." : "Register and assess"}
-        </button>
+      <section className="border border-[var(--line)] rounded-xl p-5 bg-[var(--paper)] space-y-3">
+        <div className="flex items-center gap-4">
+          <div className="text-[14px] font-semibold">Register an AI system</div>
+          <div className="flex gap-1 ml-auto">
+            {(["form", "prose"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setRegMode(m)}
+                className={`text-[11.5px] px-2.5 py-1 rounded-full border ${
+                  regMode === m
+                    ? "border-[var(--accent)] text-[var(--accent)]"
+                    : "border-[var(--line)] text-[var(--ink-soft)]"
+                }`}
+              >
+                {m === "form" ? "Fill a form" : "Describe it"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {regMode === "prose" ? (
+          <>
+            <p className="text-[12px] text-[var(--ink-soft)]">
+              An agent reads the paragraph and fills the record, then the full assessment runs.
+              Costs a model call, and you correct whatever it got wrong afterwards.
+            </p>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe it in plain words: what it does, who owns it, what data it reads, where it runs, who checks its output..."
+              className="w-full border border-[var(--line)] rounded-lg p-3 text-[13.5px] bg-[var(--parchment)]"
+            />
+            <button className="btn" disabled={busy !== "" || !description.trim()} onClick={register}>
+              {busy === "register" ? "Registering..." : "Register and assess"}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-[12px] text-[var(--ink-soft)]">
+              You already know the answers, so type them. No model call and no cost: the policy
+              rules score it the moment you save. Fields marked with a dot decide which rules fire.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Name" required value={reg.name} onChange={(v) => setReg({ ...reg, name: v })} />
+              <Field label="Owner" required value={reg.owner} onChange={(v) => setReg({ ...reg, owner: v })}
+                     placeholder="a person and their team" />
+              <Choice label="Type" scoring value={reg.type} options={["model", "agent"]}
+                      onChange={(v) => setReg({ ...reg, type: v })} />
+              <Choice label="Lifecycle" scoring value={reg.lifecycle}
+                      options={["proposed", "development", "production", "retired"]}
+                      onChange={(v) => setReg({ ...reg, lifecycle: v })} />
+              <div className="col-span-2">
+                <Field label="Purpose" required value={reg.purpose}
+                       onChange={(v) => setReg({ ...reg, purpose: v })}
+                       placeholder="what decision does it make, and about whom" />
+              </div>
+              <Field label="Deployment" scoring value={reg.deployment}
+                     onChange={(v) => setReg({ ...reg, deployment: v })}
+                     placeholder="where it runs, e.g. vendor SaaS, on-prem" />
+              <Field label="Third party" scoring value={reg.third_party}
+                     onChange={(v) => setReg({ ...reg, third_party: v })}
+                     placeholder="vendor name, or leave blank if in-house" />
+              <Field label="Data touched" scoring value={reg.data_touched}
+                     onChange={(v) => setReg({ ...reg, data_touched: v })}
+                     placeholder="comma separated, e.g. customer PII, health" />
+              <Field label="Human oversight" scoring value={reg.human_oversight}
+                     onChange={(v) => setReg({ ...reg, human_oversight: v })}
+                     placeholder="who checks it, or blank if nobody" />
+              <Field label="Business unit" value={reg.business_unit}
+                     onChange={(v) => setReg({ ...reg, business_unit: v })} />
+              <Field label="Region" value={reg.region} onChange={(v) => setReg({ ...reg, region: v })}
+                     placeholder="e.g. EU, SG" />
+              <Field label="Protected attributes" value={reg.protected_attributes}
+                     onChange={(v) => setReg({ ...reg, protected_attributes: v })}
+                     placeholder="comma separated, e.g. age, gender" />
+            </div>
+            <button
+              className="btn"
+              disabled={busy !== "" || !reg.name.trim() || !reg.owner.trim() || !reg.purpose.trim()}
+              onClick={registerManual}
+            >
+              {busy === "manual" ? "Saving..." : "Register and score"}
+            </button>
+          </>
+        )}
       </section>
 
       <div className="flex items-center gap-2">
@@ -426,14 +619,23 @@ export default function Tower() {
               <td colSpan={7} className="py-4 text-[var(--ink-soft)]">
                 {/* on a fresh estate the register is empty because nothing has been
                     registered yet, so do not blame a filter nobody set */}
-                {rows.length === 0
-                  ? "No AI systems registered yet. Register the first one above and the assessment runs straight away."
-                  : "No assets match. Clear the search or filters to see the full register."}
+                {!loaded
+                  ? "Loading the register..."
+                  : rows.length === 0
+                    ? "No AI systems registered yet. Register the first one above and the assessment runs straight away."
+                    : "No assets match. Clear the search or filters to see the full register."}
               </td>
             </tr>
           )}
+          {/* the whole row navigates. It always highlighted on hover, but only
+              the name was a link, so clicking the tier or status cell did
+              nothing and read as a broken table. */}
           {shown.map((r) => (
-            <tr key={r.asset_id} className="border-b border-[var(--line)] hover:bg-white/5">
+            <tr
+              key={r.asset_id}
+              onClick={() => router.push(`/assets/${r.asset_id}`)}
+              className="border-b border-[var(--line)] hover:bg-white/5 cursor-pointer"
+            >
               <td className="py-2.5 pr-3">
                 <Link href={`/assets/${r.asset_id}`} className="font-medium hover:text-[var(--accent)]">
                   {r.name || r.asset_id}

@@ -36,6 +36,9 @@ export default function ScopePanel({
   const [err, setErr] = useState("");
   const [noteFor, setNoteFor] = useState("");
   const [note, setNote] = useState("");
+  // which verdict the open note box belongs to. Without this, Save was hardwired
+  // to "not_met", so choosing "not applicable" recorded the opposite on the chain.
+  const [noteStatus, setNoteStatus] = useState("not_met");
 
   const loadControls = useCallback(() => {
     api(`/assets/${assetId}/controls`)
@@ -82,9 +85,13 @@ export default function ScopePanel({
   }
 
   async function attest(c: Control, status: string) {
-    // a control that is not met has to say what is missing, so ask before sending
-    if (status !== "met" && !note.trim()) {
+    // a control that is not met has to say what is missing, so ask before sending.
+    // reopening on a different control or verdict must not inherit the last note:
+    // that is how one control's explanation ended up on another's audit entry.
+    if (status !== "met" && (noteFor !== c.id || noteStatus !== status || !note.trim())) {
+      if (noteFor !== c.id || noteStatus !== status) setNote("");
       setNoteFor(c.id);
+      setNoteStatus(status);
       return;
     }
     setBusy(true);
@@ -229,11 +236,11 @@ export default function ScopePanel({
                     autoFocus
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="what is missing?"
+                    placeholder={noteStatus === "not_applicable" ? "why does this control not apply?" : "what is missing?"}
                     className="field text-[12.5px] flex-1"
                   />
-                  <button className="btn" onClick={() => attest(c, "not_met")}>
-                    Save
+                  <button className="btn" disabled={busy || !note.trim()} onClick={() => attest(c, noteStatus)}>
+                    Save as {noteStatus.replace("_", " ")}
                   </button>
                 </span>
               )}

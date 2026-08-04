@@ -5,7 +5,7 @@ import threading
 import uuid
 
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from app import audit, fairness as fair, packs as pk, precedent, ratelimit, store, sweep
 from app.agents import approval_workflow_agent, executive_advisory_agent
 from app.graph import graph, initial_state
-from app.state import RISK_TIERS, risk_rollup
+from app.state import RISK_TIERS, ROUTING_TEAMS, risk_rollup
 from app.schemas import EDITABLE_FIELDS, SCORING_FIELDS, UserCreate, UserUpdate, clean_edit, valid_asset
 from app.users import (
     User,
@@ -267,14 +267,21 @@ def activate_packs(payload: PackSwapIn, user: User = Depends(require_admin)):
     # Loaders read the env at call time, so every later model call and the
     # deterministic re-score below see the new pack with zero code change.
     from app import packs as _packs
-    for env_var, name, kind in (("POLICY_PACK", payload.policy_pack, "policy_packs"),
-                                ("FRAMEWORK_PACK", payload.framework_pack, "framework_packs")):
-        if name:
-            if not (_packs.DATA_DIR / kind / f"{name}.json").exists():
-                raise HTTPException(status_code=404, detail=f"no pack named {name!r} in {kind}")
-            os.environ[env_var] = name
-            store.set_setting(env_var, name)  # survives a restart; read back in lifespan
-    rescore = sweep.rescore_policy()
+    wanted = [(env_var, name, kind)
+              for env_var, name, kind in (("POLICY_PACK", payload.policy_pack, "policy_packs"),
+                                          ("FRAMEWORK_PACK", payload.framework_pack, "framework_packs"))
+              if name]
+    # validate BOTH before writing EITHER. The old loop swapped the policy pack,
+    # persisted it, then 404'd on a mistyped framework name, leaving the estate on
+    # a half-changed rulebook that survived a restart while the admin was told
+    # nothing had happened.
+    for _env_var, name, kind in wanted:
+        if not (_packs.DATA_DIR / kind / f"{name}.json").exists():
+            raise HTTPException(status_code=404, detail=f"no pack named {name!r} in {kind}")
+    for env_var, name, _kind in wanted:
+        os.environ[env_var] = name
+        store.set_setting(env_var, name)  # survives a restart; read back in lifespan
+    rescore = sweep.rescore_policy(by=user.email)
     return {"active": active_packs(user), "rescore": rescore}
 
 
@@ -500,10 +507,13 @@ def decide_flag(finding_id: str, payload: FlagDecisionIn, user: User = Depends(r
     if finding.get("review"):
         raise HTTPException(status_code=409, detail="this flag has already been decided")
     owner = (finding.get("owner") or "").lower()
-    if owner and owner in (user.email.lower(), user.email.lower().split("@")[0]):
-        # maker-checker: whoever owns the remediation work cannot also sign it off.
-        # matches both full-email and short-name owner conventions
+    me = user.email.lower()
+    # maker-checker: whoever owns the remediation work cannot also sign it off,
+    # and neither can whoever raised it by hand.
+    if owner and owner in (me, me.split("@")[0]):
         raise HTTPException(status_code=403, detail="you own this finding's remediation; a different reviewer must decide it")
+    if (finding.get("raised_by") or "").lower() == me:
+        raise HTTPException(status_code=403, detail="you logged this finding; a different reviewer must decide it")
 
     finding["review"] = {
         "verdict": payload.verdict,
@@ -615,17 +625,39 @@ def remediation_queue(
     }
 
 
+SEVERITIES = ("high", "medium", "low")
+
+# What a reviewer gets when they assign without naming a date. VerifyWise-style
+# SLA: the worse it is, the sooner it is due. Hand-typing every date is what made
+# the board feel like a spreadsheet.
+SLA_DAYS = {"high": 7, "medium": 30, "low": 90}
+
+
 class FlagPatchIn(BaseModel):
     owner: str | None = None  # null clears it back to unassigned
     due_at: str | None = None  # ISO date, null clears it
     status: str | None = None
+    routed_to: str | None = None  # a human can redirect what the agent routed
+    severity: str | None = None  # and disagree with the agent's severity
 
 
 @app.patch("/flags/{finding_id}")
 def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(require_reviewer)):
     sent = payload.model_fields_set  # so "clear the owner" is distinguishable from "leave it alone"
     if not sent:
-        raise HTTPException(status_code=422, detail="send at least one of owner, due_at, status")
+        raise HTTPException(
+            status_code=422,
+            detail="send at least one of owner, due_at, status, routed_to, severity")
+
+    if "routed_to" in sent and payload.routed_to:
+        if payload.routed_to.lower() not in ROUTING_TEAMS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"routed_to must be one of: {', '.join(ROUTING_TEAMS)}")
+    if "severity" in sent:
+        if (payload.severity or "").lower() not in SEVERITIES:
+            raise HTTPException(
+                status_code=422, detail=f"severity must be one of: {', '.join(SEVERITIES)}")
 
     new_status = None
     if "status" in sent:
@@ -663,6 +695,20 @@ def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(requ
         due = (payload.due_at or "").strip() or None
         finding["due_at"] = due
         notes.append(f"due {due}" if due else "due date cleared")
+    elif "owner" in sent and finding.get("owner") and not finding.get("due_at"):
+        # assigning without a date used to leave the card with no deadline, which is
+        # how a tracker rots. Severity picks the SLA; the reviewer can still edit it.
+        days = SLA_DAYS.get((finding.get("severity") or "low").lower(), 90)
+        finding["due_at"] = (date.today() + timedelta(days=days)).isoformat()
+        notes.append(f"due {finding['due_at']} (default for {finding.get('severity')})")
+    if "routed_to" in sent:
+        team = (payload.routed_to or "").strip().lower() or None
+        finding["routed_to"] = team
+        notes.append(f"routed to {team}" if team else "routing cleared")
+    if "severity" in sent:
+        was_sev = finding.get("severity")
+        finding["severity"] = payload.severity.lower()
+        notes.append(f"severity {was_sev} -> {finding['severity']}")
     if new_status is not None:
         was = (finding.get("status") or "open").lower()
         finding["status"] = new_status
@@ -679,6 +725,93 @@ def update_flag(finding_id: str, payload: FlagPatchIn, user: User = Depends(requ
         "asset_id": state["asset_id"],
         "asset_name": state.get("asset", {}).get("name"),
         "risk_tier": state.get("asset", {}).get("risk_tier"),
+        "risk_level": None,
+        "finding": finding,
+    })
+
+
+class ManualFindingIn(BaseModel):
+    plain: str  # the issue in one sentence, the card title
+    severity: str = "medium"
+    remediation: str = ""
+    evidence: str = ""  # what makes you say so
+    control_id: str = "MANUAL"
+    routed_to: str | None = None
+    owner: str | None = None
+    due_at: str | None = None
+
+
+@app.post("/assets/{asset_id}/findings")
+def log_finding(asset_id: str, payload: ManualFindingIn, user: User = Depends(require_reviewer)):
+    """Record an issue a HUMAN found: a pen-test result, an incident, something
+    raised in a meeting. Until now every finding on this estate was minted by an
+    agent, so anything a person already knew simply could not be written down.
+
+    inspector='human' is what keeps it safe: sweep.rescore_one only replaces
+    findings whose inspector is 'policy_compliance', so a hand-logged issue
+    survives every pack swap and re-score without any extra code.
+    """
+    plain = payload.plain.strip()
+    if not plain:
+        raise HTTPException(status_code=422, detail="say what the issue is: an untitled finding is not a finding")
+    severity = (payload.severity or "").lower()
+    if severity not in SEVERITIES:
+        raise HTTPException(status_code=422, detail=f"severity must be one of: {', '.join(SEVERITIES)}")
+    if payload.routed_to and payload.routed_to.lower() not in ROUTING_TEAMS:
+        raise HTTPException(status_code=422, detail=f"routed_to must be one of: {', '.join(ROUTING_TEAMS)}")
+    if payload.due_at:
+        try:
+            date.fromisoformat(payload.due_at[:10])
+        except ValueError:
+            raise HTTPException(status_code=422, detail="due_at must be a date like 2026-08-31")
+
+    state = _asset_or_404(asset_id)
+    asset = dict(state.get("asset") or {})
+    assessment = dict(asset.get("assessment") or {})
+    findings = list(assessment.get("findings") or [])
+
+    # ids must not collide with an agent's, and must not be reused after a delete
+    n = 1 + sum(1 for f in findings if str(f.get("finding_id", "")).startswith(f"f-{asset_id}-man-"))
+    while any(f.get("finding_id") == f"f-{asset_id}-man-{n}" for f in findings):
+        n += 1
+
+    owner = (payload.owner or "").strip() or None
+    due = (payload.due_at or "").strip() or None
+    if owner and not due:
+        due = (date.today() + timedelta(days=SLA_DAYS[severity])).isoformat()
+
+    finding = {
+        "finding_id": f"f-{asset_id}-man-{n}",
+        "inspector": "human",
+        "raised_by": user.email,  # who to ask about it later
+        "control_id": (payload.control_id or "MANUAL").strip() or "MANUAL",
+        "severity": severity,
+        "plain": plain,
+        "evidence": payload.evidence.strip() or f"Logged by {user.email}",
+        "remediation": payload.remediation.strip() or "To be decided with the owner.",
+        "status": "open",
+        "owner": owner,
+        "due_at": due,
+        "routed_to": (payload.routed_to or "").lower() or None,
+    }
+    findings.append(finding)
+    assessment["findings"] = findings
+    assessment["risk"] = risk_rollup(findings)
+    assessment["decision"] = "flagged" if findings else "compliant"
+    asset["assessment"] = assessment
+    state["asset"] = asset
+    state["risk"] = assessment["risk"]
+    state["decision"] = assessment["decision"]
+    state["audit"] = audit.chain_as(
+        state.get("audit") or [],
+        [f"finding_logged: {finding['finding_id']} ({severity}) {plain[:80]}"],
+        by=user.email,
+    )
+    store.save(state)
+    return _finding_view({
+        "asset_id": asset_id,
+        "asset_name": asset.get("name"),
+        "risk_tier": asset.get("risk_tier"),
         "risk_level": None,
         "finding": finding,
     })
@@ -792,6 +925,18 @@ async def list_users(user: User = Depends(require_admin)):
     async with session_maker() as session:
         rows = (await session.execute(select(User).order_by(User.email))).scalars().all()
         return [{"id": str(x.id), "email": x.email, "role": x.role, "is_active": x.is_active} for x in rows]
+
+
+@app.get("/users/assignable")
+async def assignable_users(user: User = Depends(require_reviewer)):
+    """Who a finding can be assigned to. Deliberately NOT /users: a reviewer needs
+    the names to fill a picker, but has no business seeing who is deactivated or
+    who is an admin. Email and role only, active accounts only."""
+    async with session_maker() as session:
+        rows = (await session.execute(
+            select(User).where(User.is_active.is_(True)).order_by(User.email)
+        )).scalars().all()
+        return [{"email": x.email, "role": x.role} for x in rows]
 
 
 @app.post("/users")
@@ -948,14 +1093,19 @@ def register_manual(payload: ManualAssetIn, user: User = Depends(require_reviewe
             status_code=422,
             detail="name, owner, purpose, a valid type and a valid lifecycle are all required",
         )
+    # NOT "assessed". The deterministic policy pack scores this record on save,
+    # but nothing has tiered it against the framework and no inspector has run,
+    # so calling it assessed would put a claim on the register that is not true.
+    # "registered" is honest and puts it in the under-review count, where a
+    # system waiting for its real assessment belongs.
     state = {
-        "asset_id": asset_id, "status": "assessed", "stage": "done", "description": "",
+        "asset_id": asset_id, "status": "registered", "stage": "done", "description": "",
         "asset": asset, "applicable_inspectors": [], "findings_raw": [], "inspector_reports": [],
         "risk_tier": "", "risk": {}, "decision": "", "audit": [], "error": None,
         "field_source": {}, "packs": {}, "controls": {},
     }
     result = _rescore_and_save(state, [f"manual_register: {asset_id} entered by {user.email}"], user.email)
-    return {"asset_id": asset_id, "status": "assessed", "rescore": result}
+    return {"asset_id": asset_id, "status": "registered", "rescore": result}
 
 
 # --- per-asset rulebooks ----------------------------------------------------

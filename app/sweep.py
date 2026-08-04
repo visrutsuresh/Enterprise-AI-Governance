@@ -91,7 +91,7 @@ def rescore_one(state: dict) -> dict | None:
     }
 
 
-def rescore_policy() -> dict:
+def rescore_policy(by: str | None = None) -> dict:
     """The estate-wide pack-swap moment (NFR-1), now a loop over rescore_one so
     there is exactly ONE definition of what a pack says about an asset."""
     rows = store.list_all()
@@ -107,9 +107,13 @@ def rescore_policy() -> dict:
         pack_id = result["pack"]
         if not result["changed"]:
             continue
-        state["audit"] = audit.chain(
+        # chain_as, not chain: swapping the rulebook the whole estate is judged
+        # against is the most consequential thing an admin can do, and it used to
+        # land on the trail with by=null like a background job did it.
+        state["audit"] = audit.chain_as(
             state.get("audit") or [],
             [f"pack_swap re-score against {result['pack']}: {result['findings']} policy finding(s)"],
+            by=by,
         )
         store.save(state)
         changed += 1
@@ -203,42 +207,60 @@ def _estate_metrics() -> dict:
     prod_rows = [r for r in rows if (r["lifecycle"] or "") == "production"]
     prod_with_oversight = sum(1 for r in prod_rows if (r["human_oversight"] or "").strip())
 
-    def real(value, detail, unit=""):
-        return {"value": value, "detail": detail, "unit": unit}
+    # tone tells the dashboard whether a number is good news or bad, because a
+    # governance metric with no direction is just a digit. "flat" = a count that
+    # is neither, like how many systems exist.
+    def real(value, detail, unit="", tone="flat", good=None, bad=None):
+        m = {"value": value, "detail": detail, "unit": unit, "tone": tone}
+        if good is not None:
+            m["good"] = good
+        if bad is not None:
+            m["bad"] = bad
+        return m
 
-    def sample(value, detail, unit=""):
-        return {"value": value, "sample": True, "detail": detail, "unit": unit}
-
+    # Five metrics used to be served here as `sample`: regulatory readiness,
+    # explainability coverage, model transparency, model performance and SLA
+    # compliance. Every one was a hardcoded number with a badge admitting the
+    # estate tracks no such signal. A governance product that invents its own
+    # compliance figures is the exact thing it exists to catch, and a badge is
+    # not a defence once someone screenshots the tile. They are gone. What is
+    # left is only what the estate can actually answer.
     return {
         "portfolio": {
             "total_use_cases": real(total, "count of registered AI assets"),
             "in_production": real(production, "assets with lifecycle = production"),
-            "under_review": real(under_review, "status processing or registered (not yet assessed)"),
+            "under_review": real(under_review, "registered or processing, not yet assessed",
+                                 tone="lower_better", good=0, bad=max(5, total // 10)),
             "adoption_rate": real(_pct(production, total), "production / total assets", "%"),
         },
         "risk": {
-            "high_risk_systems": real(high_risk, "assets tiered high or unacceptable"),
-            "open_issues": real(open_findings, "findings with status open across the estate"),
-            "policy_violations": real(policy_violations, "findings from the policy_compliance inspector"),
-            "third_party_risks": real(third_party, "findings from the security_third_party inspector"),
+            "high_risk_systems": real(high_risk, "assets tiered high or unacceptable",
+                                      tone="lower_better", good=0, bad=max(1, total // 5)),
+            "open_issues": real(open_findings, "findings with status open across the estate",
+                                tone="lower_better", good=0, bad=max(10, total // 2)),
+            "policy_violations": real(policy_violations, "findings from the policy_compliance inspector",
+                                      tone="lower_better", good=0, bad=max(10, total // 2)),
+            "third_party_risks": real(third_party, "findings from the security_third_party inspector",
+                                      tone="lower_better", good=0, bad=max(5, total // 4)),
         },
         "compliance": {
-            "compliance_score": real(_pct(compliant, assessed), "compliant / assessed assets", "%"),
-            "regulatory_readiness": sample(78, "no regulatory-readiness signal is tracked per asset yet", "%"),
+            "compliance_score": real(_pct(compliant, assessed), "compliant / assessed assets", "%",
+                                     tone="higher_better", good=80, bad=50),
             "audit_findings": real(total_findings, "total findings on record across all assessments"),
-            "approval_status": real(compliant, f"{compliant} compliant vs {flagged} flagged ({pending} pending decision)"),
+            "approval_status": real(pending, f"{compliant} compliant, {flagged} flagged, {pending} awaiting a decision",
+                                    tone="lower_better", good=0, bad=max(5, total // 4)),
         },
         "responsible_ai": {
-            "bias_assessment": real(bias_findings, "open responsible_ai findings citing bias or fairness"),
-            "explainability_coverage": sample(64, "explainability metadata is not captured per asset yet", "%"),
+            "bias_assessment": real(bias_findings, "open responsible_ai findings citing bias or fairness",
+                                    tone="lower_better", good=0, bad=10),
             "human_oversight": real(_pct(prod_with_oversight, len(prod_rows)),
-                                    f"{prod_with_oversight}/{len(prod_rows)} production assets name a human overseer", "%"),
-            "model_transparency": sample(71, "no transparency / model-card score is captured yet"),
+                                    f"{prod_with_oversight}/{len(prod_rows)} production assets name a human overseer", "%",
+                                    tone="higher_better", good=90, bad=70),
         },
         "operational": {
-            "model_performance": sample(92, "live model-performance telemetry is not wired into the estate", "%"),
-            "model_drift_incidents": real(drift, "findings from the model_monitoring sweep agent"),
-            "security_findings": real(third_party, "findings from the security_third_party inspector"),
-            "sla_compliance": sample(88, "no SLA timers are recorded in the estate yet", "%"),
+            "model_drift_incidents": real(drift, "findings from the model_monitoring sweep agent",
+                                          tone="lower_better", good=0, bad=10),
+            "security_findings": real(third_party, "findings from the security_third_party inspector",
+                                      tone="lower_better", good=0, bad=max(5, total // 4)),
         },
     }

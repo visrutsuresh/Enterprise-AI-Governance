@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { API_BASE, api } from "@/lib/api";
+import { API_BASE, api, readable } from "@/lib/api";
 import { STAGES, TIER_COLORS } from "@/lib/stages";
 import RecordPanel from "./RecordPanel";
 import ScopePanel from "./ScopePanel";
@@ -80,6 +80,10 @@ export default function AssetDetail() {
   const [tierEdit, setTierEdit] = useState(false);
   const [newTier, setNewTier] = useState("high");
   const [tierReason, setTierReason] = useState("");
+  const [logging, setLogging] = useState(false);
+  const [logPlain, setLogPlain] = useState("");
+  const [logSeverity, setLogSeverity] = useState("medium");
+  const [logEvidence, setLogEvidence] = useState("");
 
   const refresh = useCallback(() => {
     api(`/assets/${id}`)
@@ -144,13 +148,46 @@ export default function AssetDetail() {
     }
   }
 
+  async function logIssue() {
+    if (!logPlain.trim()) return;
+    setBusy("log");
+    setActError("");
+    try {
+      await api(`/assets/${id}/findings`, {
+        method: "POST",
+        body: JSON.stringify({
+          plain: logPlain.trim(),
+          severity: logSeverity,
+          evidence: logEvidence.trim(),
+        }),
+      });
+      setLogPlain("");
+      setLogEvidence("");
+      setLogSeverity("medium");
+      setLogging(false);
+      refresh();
+    } catch (e) {
+      setActError(readable(e));
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function decide(finding_id: string, verdict: "approved" | "overridden") {
+    // `reason` is one box shared by the whole page. Only send it to the finding
+    // whose override box is actually open, or an abandoned draft on finding A
+    // gets written into finding B's audit entry as its justification.
+    const justification = overriding === finding_id ? reason : "";
+    if (verdict === "overridden" && !justification.trim()) {
+      setActError("An override needs a reason: that reason is what the auditor reads.");
+      return;
+    }
     setBusy(finding_id);
     setActError("");
     try {
       await api(`/flags/${finding_id}/decision`, {
         method: "POST",
-        body: JSON.stringify({ verdict, reason }),
+        body: JSON.stringify({ verdict, reason: justification }),
       });
       setOverriding("");
       setReason("");
@@ -316,9 +353,52 @@ export default function AssetDetail() {
 
           {section === "findings" && (
             <section className="panel p-5 space-y-3">
-              <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
-                Findings ({findings.length})
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+                  Findings ({findings.length})
+                </h2>
+                <button className="btn ghost text-[12px] ml-auto" onClick={() => setLogging(!logging)}>
+                  {logging ? "Cancel" : "Log an issue"}
+                </button>
+              </div>
+
+              {/* every finding here used to come from an agent. An issue found in a
+                  pen test, an incident or a meeting simply could not be written down. */}
+              {logging && (
+                <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
+                  <p className="text-[12px] text-[var(--ink-soft)]">
+                    Something you already know is wrong. It joins the audit chain as raised by you,
+                    and lands on the remediation board like any other finding.
+                  </p>
+                  <input
+                    autoFocus
+                    value={logPlain}
+                    onChange={(e) => setLogPlain(e.target.value)}
+                    placeholder="What is wrong, in one sentence"
+                    className="field w-full text-[13px]"
+                  />
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <select
+                      value={logSeverity}
+                      onChange={(e) => setLogSeverity(e.target.value)}
+                      className="field text-[12.5px]"
+                    >
+                      {["high", "medium", "low"].map((s) => (
+                        <option key={s} value={s}>{s} severity</option>
+                      ))}
+                    </select>
+                    <input
+                      value={logEvidence}
+                      onChange={(e) => setLogEvidence(e.target.value)}
+                      placeholder="How do you know? (report, ticket, date)"
+                      className="field text-[12.5px] flex-1 min-w-[200px]"
+                    />
+                  </div>
+                  <button className="btn" disabled={busy !== "" || !logPlain.trim()} onClick={logIssue}>
+                    {busy === "log" ? "Saving..." : "Log it"}
+                  </button>
+                </div>
+              )}
               {findings.length === 0 && (
                 <p className="text-[13.5px] text-[var(--ink-soft)]">
                   {state.status === "processing" ? "Assessment still running." : "No findings: compliant."}

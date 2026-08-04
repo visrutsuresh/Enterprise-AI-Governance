@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { API_BASE, upload } from "@/lib/api";
 import {
   DndContext,
@@ -13,8 +14,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { api } from "@/lib/api";
-import { useUser } from "@/lib/useUser";
+import { api, readable } from "@/lib/api";
 
 type EvidenceFile = {
   id: number;
@@ -41,6 +41,8 @@ type Finding = {
   overdue: boolean;
   review: { verdict?: string } | null;
 };
+
+type Person = { email: string; role: string };
 
 type Board = {
   findings: Finding[];
@@ -77,15 +79,18 @@ function sevClass(sev: string | null) {
 function dueLabel(f: Finding) {
   if (!f.due_at) return "no date";
   const d = new Date(f.due_at);
+  if (Number.isNaN(d.getTime())) return "bad date";
+  // the year used to be omitted, so a deadline next month and one a year out
+  // both read "03 SEP" on a board whose whole point is deadlines
+  const sameYear = d.getFullYear() === new Date().getFullYear();
   const txt = d
-    .toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+    .toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      ...(sameYear ? {} : { year: "numeric" }),
+    })
     .toUpperCase();
   return f.overdue ? `LATE ${txt}` : txt;
-}
-
-function initials(email: string | null) {
-  if (!email) return "?";
-  return email.slice(0, 2).toUpperCase();
 }
 
 const kb = (n: number) =>
@@ -161,19 +166,22 @@ function Evidence({ f, onUploaded }: { f: Finding; onUploaded: () => void }) {
 
 function Card({
   f,
-  onAssign,
+  onOwner,
+  people,
   onDue,
   onUploaded,
   dragging,
 }: {
   f: Finding;
-  onAssign: (f: Finding, mine: boolean) => void;
+  onOwner: (f: Finding, owner: string | null) => void;
+  people: Person[];
   onDue: (f: Finding, due: string) => void;
   onUploaded: () => void;
   dragging?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: f.finding_id });
+  const router = useRouter();
 
   return (
     <div
@@ -182,8 +190,25 @@ function Card({
       className={`panel p-3 mb-2 ${isDragging || dragging ? "opacity-40" : ""}`}
     >
       {/* the grip is the drag handle. The footer controls are NOT, or every
-          click on the date picker would start a drag instead. */}
-      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+          click on the date picker would start a drag instead.
+          It is ALSO the way into the asset: the card used to look clickable all
+          over while only the 9.5px asset name navigated. The 5px drag threshold
+          below means a click stays a click. */}
+      <div
+        {...attributes}
+        {...listeners}
+        role="link"
+        tabIndex={0}
+        title={`Open ${f.asset_name ?? f.asset_id}`}
+        onClick={() => !isDragging && router.push(`/assets/${f.asset_id}`)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            router.push(`/assets/${f.asset_id}`);
+          }
+        }}
+        className="cursor-pointer active:cursor-grabbing rounded -mx-1 px-1 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+      >
         <span
           className={`font-array text-[9px] tracking-wider px-2 py-[3px] rounded-[4px] font-bold ${sevClass(f.severity)}`}
         >
@@ -203,22 +228,28 @@ function Card({
       </Link>
 
       <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--line)]">
-        {f.owner ? (
-          <button
-            onClick={() => onAssign(f, false)}
-            title={`${f.owner} — click to unassign`}
-            className="w-[22px] h-[22px] rounded-full bg-[var(--accent-wash)] text-[var(--accent)] font-array text-[9px] font-bold grid place-items-center hover:opacity-70"
-          >
-            {initials(f.owner)}
-          </button>
-        ) : (
-          <button
-            onClick={() => onAssign(f, true)}
-            className="font-array text-[9px] tracking-wider text-[var(--accent)] hover:underline"
-          >
-            ASSIGN TO ME
-          </button>
-        )}
+        {/* was a single ASSIGN TO ME button, so a board with three reviewers on it
+            could only ever assign work to whoever was looking at the screen */}
+        <label className="sr-only" htmlFor={`owner-${f.finding_id}`}>Owner</label>
+        <select
+          id={`owner-${f.finding_id}`}
+          value={f.owner ?? ""}
+          onChange={(e) => onOwner(f, e.target.value || null)}
+          title={f.owner ? `Assigned to ${f.owner}` : "Unassigned"}
+          className="bg-transparent font-array text-[9.5px] text-[var(--accent)] outline-none max-w-[130px] truncate"
+        >
+          <option value="">unassigned</option>
+          {people.map((p) => (
+            <option key={p.email} value={p.email}>
+              {p.email}
+            </option>
+          ))}
+          {/* an owner the agent wrote as a display name is not in the account
+              list; keep it visible rather than silently showing "unassigned" */}
+          {f.owner && !people.some((p) => p.email === f.owner) && (
+            <option value={f.owner}>{f.owner}</option>
+          )}
+        </select>
         <input
           type="date"
           value={f.due_at ? String(f.due_at).slice(0, 10) : ""}
@@ -244,7 +275,8 @@ function Column({
 }: {
   col: (typeof COLUMNS)[number];
   findings: Finding[];
-  onAssign: (f: Finding, mine: boolean) => void;
+  onOwner: (f: Finding, owner: string | null) => void;
+  people: Person[];
   onDue: (f: Finding, due: string) => void;
   onUploaded: () => void;
 }) {
@@ -275,8 +307,8 @@ function Column({
 /* ----------------------------------------------------------------- the page */
 
 export default function Remediation() {
-  const { user } = useUser();
   const [board, setBoard] = useState<Board | null>(null);
+  const [people, setPeople] = useState<Person[]>([]);
   const [scope, setScope] = useState<string>("mine");
   const [team, setTeam] = useState("");
   const [error, setError] = useState("");
@@ -296,14 +328,21 @@ export default function Remediation() {
     if (team) p.set("team", team);
     try {
       setBoard(await api(`/remediation?${p}`));
+      setError(""); // one failed poll used to leave the banner up for the session
     } catch (e) {
-      setError(String(e));
+      setError(readable(e));
     }
   }, [scope, team]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    // who work can be handed to. Fetched once: the roster does not change while
+    // someone triages a board.
+    api("/users/assignable").then(setPeople).catch(() => setPeople([]));
+  }, []);
 
   const teams = useMemo(() => {
     const s = new Set<string>();
@@ -483,11 +522,8 @@ export default function Remediation() {
                 key={col.key}
                 col={col}
                 findings={board.findings.filter((f) => f.status === col.key)}
-                onAssign={(f, mine) =>
-                  patch(f, { owner: mine ? user?.email ?? null : null }, {
-                    owner: mine ? user?.email ?? null : null,
-                  })
-                }
+                onOwner={(f, owner) => patch(f, { owner }, { owner })}
+                people={people}
                 onDue={(f, due) => patch(f, { due_at: due || null }, { due_at: due || null })}
                 onUploaded={load}
               />
