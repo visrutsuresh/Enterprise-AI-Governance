@@ -115,13 +115,8 @@ async def bootstrap_admin(payload: BootstrapIn):
 
 
 @app.get("/")
+@app.get("/health")  # the Phase 0 boot check hits this one
 def health():
-    return {"status": "ok", "product": "governance"}
-
-
-@app.get("/health")
-def health_alias():
-    # the Phase 0 boot check hits this
     return {"status": "ok", "product": "governance"}
 
 
@@ -214,6 +209,14 @@ def register_asset(payload: RegisterIn, background: BackgroundTasks, user: User 
     return {"asset_id": asset_id, "status": "processing"}
 
 
+def _asset_or_404(asset_id: str) -> dict:
+    # this exact get-then-404 ran twelve times, in two different wordings
+    state = store.get(asset_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="no such asset")
+    return state
+
+
 @app.get("/assets")
 def list_assets(user: User = Depends(require_reviewer)):
     return store.list_all()
@@ -221,9 +224,7 @@ def list_assets(user: User = Depends(require_reviewer)):
 
 @app.get("/assets/{asset_id}")
 def get_asset(asset_id: str, user: User = Depends(require_reviewer)):
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="asset not found")
+    state = _asset_or_404(asset_id)
     return state
 
 
@@ -232,9 +233,7 @@ def get_audit(asset_id: str, user: User = Depends(require_reviewer)):
     # the tamper-evident trail: verify() re-walks the hash chain and reports
     # the FIRST entry whose hash no longer follows from the one before it,
     # which is what an edit straight into the JSONB blob looks like
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="asset not found")
+    state = _asset_or_404(asset_id)
     log = state.get("audit") or []
     broken_at = audit.verify(log)
     return {
@@ -408,9 +407,7 @@ def export_findings(user: User = Depends(require_reviewer)):
 
 @app.get("/assets/{asset_id}/audit.csv")
 def export_audit(asset_id: str, user: User = Depends(require_reviewer)):
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     log = state.get("audit") or []
     broken_at = audit.verify(log)
     return _csv_response(
@@ -436,9 +433,7 @@ def override_tier(asset_id: str, payload: TierOverrideIn, user: User = Depends(r
     reason = payload.reason.strip()
     if not reason:
         raise HTTPException(status_code=422, detail="a tier override needs a reason: say why the assigned tier is wrong")
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     # same fallback the asset page uses, so the recorded "from" matches what the screen showed
     assessment_tier = (state.get("asset", {}).get("assessment") or {}).get("risk_tier") or ""
     old = (state.get("risk_tier") or assessment_tier or "").lower() or "unassigned"
@@ -857,9 +852,7 @@ class RecordPatchIn(BaseModel):
 def edit_record(asset_id: str, payload: RecordPatchIn, user: User = Depends(require_reviewer)):
     if not payload.fields:
         raise HTTPException(status_code=422, detail=f"send at least one of: {', '.join(EDITABLE_FIELDS)}")
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     asset = dict(state.get("asset") or {})
 
     cleaned = {}
@@ -976,9 +969,7 @@ def set_asset_packs(asset_id: str, payload: AssetPacksIn, user: User = Depends(r
     for name in payload.extra_frameworks:
         if name not in avail["framework_packs"]:
             raise HTTPException(status_code=404, detail=f"no pack named {name!r} in framework_packs")
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     current = pk.chosen(state)
     state["packs"] = {
         "policy": payload.policy or current["policy"],
@@ -1011,9 +1002,7 @@ class ControlIn(BaseModel):
 
 @app.get("/assets/{asset_id}/controls")
 def list_controls(asset_id: str, user: User = Depends(require_reviewer)):
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     tier = (state.get("risk_tier") or (state.get("asset", {}).get("assessment") or {}).get("risk_tier") or "").lower()
     attested = state.get("controls") or {}
     chosen = pk.chosen(state)
@@ -1042,9 +1031,7 @@ def attest_control(asset_id: str, control_id: str, payload: ControlIn, user: Use
         raise HTTPException(status_code=422, detail=f"status must be one of: {', '.join(CONTROL_STATUSES)}")
     if payload.status != "met" and not payload.note.strip():
         raise HTTPException(status_code=422, detail="a control that is not met needs a note saying what is missing")
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     controls = dict(state.get("controls") or {})
     controls[control_id] = {
         "status": payload.status,
@@ -1108,9 +1095,7 @@ def _apply_measurement(state: dict, payload: dict, metric_key: str, by: str) -> 
 
 @app.post("/assets/{asset_id}/measurements")
 def add_measurement(asset_id: str, payload: MeasurementIn, user: User = Depends(require_reviewer)):
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     metric_key = payload.metric or state.get("fairness_metric") or fair.DEFAULT_METRIC
     if metric_key not in fair.METRICS:
         raise HTTPException(status_code=422, detail=f"metric must be one of: {', '.join(fair.METRICS)}")
@@ -1131,9 +1116,7 @@ async def add_measurement_csv(
 ):
     """Three columns, one row per decision: group, prediction, label.
     The ten-second path for an owner who has a spreadsheet and no pipeline."""
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     raw = (await file.read()).decode("utf-8", errors="replace")
     rows, bad = [], 0
     for i, line in enumerate(csv.reader(io.StringIO(raw))):
@@ -1168,9 +1151,7 @@ async def add_measurement_csv(
 
 @app.get("/assets/{asset_id}/measurements")
 def get_measurements(asset_id: str, user: User = Depends(require_reviewer)):
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     return {
         "asset_id": asset_id,
         "metric": state.get("fairness_metric") or fair.DEFAULT_METRIC,
@@ -1193,9 +1174,7 @@ def bind_metric(asset_id: str, payload: MetricIn, user: User = Depends(require_r
         raise HTTPException(status_code=422, detail=f"metric must be one of: {', '.join(fair.METRICS)}")
     if not payload.reason.strip():
         raise HTTPException(status_code=422, detail="say why this definition of fair fits this asset")
-    state = store.get(asset_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="no such asset")
+    state = _asset_or_404(asset_id)
     state["fairness_metric"] = payload.metric
     latest = store.latest_measurement(asset_id)
     if latest:
