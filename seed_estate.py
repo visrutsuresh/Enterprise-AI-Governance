@@ -69,7 +69,12 @@ def seed_remediation(assessment: dict, asset_index: int) -> None:
         status, offset, assign = SEEDED_FLOW[(asset_index + i) % len(SEEDED_FLOW)]
         f["status"] = status
         f["due_at"] = (today + timedelta(days=offset)).isoformat() if offset is not None else None
-        f["owner"] = REVIEWERS[(asset_index + i) % len(REVIEWERS)] if assign and REVIEWERS else None
+        # NOT the same counter as the status above. SEEDED_FLOW has 12 entries and
+        # there are 3 reviewers, so (asset_index + i) locked every status to one
+        # person: lucy owned zero in_progress findings no matter how big the estate
+        # got, and her board opened with an empty column. The stride below is
+        # coprime with both, so each reviewer gets a spread of every state.
+        f["owner"] = REVIEWERS[(asset_index * 2 + i * 5) % len(REVIEWERS)] if assign and REVIEWERS else None
         f["evidence_files"] = f.get("evidence_files") or []
         f["routed_to"] = SEEDED_ROUTING[(asset_index + i) % len(SEEDED_ROUTING)]
 

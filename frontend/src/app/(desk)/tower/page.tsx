@@ -78,7 +78,7 @@ const METRIC_GROUPS: { key: string; title: string; metrics: { key: string; label
     title: "Operational",
     metrics: [
       { key: "model_drift_incidents", label: "Model Drift Incidents" },
-      { key: "security_findings", label: "Security Findings" },
+      { key: "dismissed_findings", label: "Dismissed, With a Reason" },
     ],
   },
 ];

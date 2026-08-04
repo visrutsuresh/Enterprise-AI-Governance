@@ -202,6 +202,7 @@ def _estate_metrics() -> dict:
     policy_violations = by_inspector.get("policy_compliance", 0)
     third_party = by_inspector.get("security_third_party", 0)
     drift = by_inspector.get("model_monitoring", 0)
+    dismissed = sum(1 for r in rows for f in (r.get("findings") or []) if (f.get("status") or "") == "dismissed")
 
     # human oversight: share of PRODUCTION assets that name a human overseer
     prod_rows = [r for r in rows if (r["lifecycle"] or "") == "production"]
@@ -257,10 +258,12 @@ def _estate_metrics() -> dict:
                                     f"{prod_with_oversight}/{len(prod_rows)} production assets name a human overseer", "%",
                                     tone="higher_better", good=90, bad=70),
         },
+        # "security_findings" used to live here counting the SAME inspector as
+        # third_party_risks above, so two differently-named tiles always showed
+        # the identical number. One fact, one tile.
         "operational": {
             "model_drift_incidents": real(drift, "findings from the model_monitoring sweep agent",
                                           tone="lower_better", good=0, bad=10),
-            "security_findings": real(third_party, "findings from the security_third_party inspector",
-                                      tone="lower_better", good=0, bad=max(5, total // 4)),
+            "dismissed_findings": real(dismissed, "findings a reviewer overrode, each with a written reason"),
         },
     }

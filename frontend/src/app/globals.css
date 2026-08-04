@@ -674,7 +674,7 @@ input[type="date"] {
   width: min-content;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  margin-left: 6px;
+  margin-left: 1px;
   padding: 0;
   opacity: 0.55;
   cursor: pointer;
