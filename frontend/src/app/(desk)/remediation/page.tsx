@@ -117,7 +117,7 @@ function Evidence({ f, onUploaded }: { f: Finding; onUploaded: () => void }) {
     <div className="mt-2 pt-2 border-t border-[var(--line)]">
       <button
         onClick={() => setOpen(!open)}
-        className={`font-array text-[9px] tracking-wider hover:underline ${
+        className={`font-array text-[14px] tracking-wider hover:underline ${
           files.length ? "text-[var(--olive)]" : "text-[var(--ink-soft)]"
         }`}
       >
@@ -130,7 +130,7 @@ function Evidence({ f, onUploaded }: { f: Finding; onUploaded: () => void }) {
             <a
               key={e.id}
               href={`${API_BASE}/evidence/${e.id}`}
-              className="block font-array text-[9.5px] text-[var(--accent)] hover:underline truncate"
+              className="block font-array text-[14px] text-[var(--accent)] hover:underline truncate"
               title={`${e.filename} · ${kb(e.size)} · ${e.uploaded_by ?? "unknown"}`}
             >
               {e.filename} · {kb(e.size)}
@@ -145,11 +145,11 @@ function Evidence({ f, onUploaded }: { f: Finding; onUploaded: () => void }) {
           <button
             onClick={() => picker.current?.click()}
             disabled={busy}
-            className="font-array text-[9px] tracking-wider text-[var(--accent)] hover:underline mt-1 disabled:opacity-50"
+            className="font-array text-[14px] tracking-wider text-[var(--accent)] hover:underline mt-1 disabled:opacity-50"
           >
             {busy ? "UPLOADING…" : "+ ATTACH PROOF"}
           </button>
-          {err && <p className="font-array text-[9px] text-[var(--rust)] mt-1 leading-snug">{err}</p>}
+          {err && <p className="font-array text-[14px] text-[var(--rust)] mt-1 leading-snug">{err}</p>}
         </div>
       )}
     </div>
@@ -208,15 +208,15 @@ function Card({
         >
           {(f.severity ?? "—").toUpperCase()}
         </span>
-        <p className="text-[12.5px] font-semibold mt-2 leading-snug">{f.plain}</p>
-        <p className="font-array text-[9.5px] text-[var(--ink-soft)] mt-1">
+        <p className="text-[14px] font-semibold mt-2 leading-snug">{f.plain}</p>
+        <p className="font-array text-[14px] text-[var(--ink-soft)] mt-1">
           {f.control_id} · {f.inspector}
         </p>
       </div>
 
       <Link
         href={`/assets/${f.asset_id}`}
-        className="font-array text-[9.5px] text-[var(--accent)] hover:underline mt-1 inline-block"
+        className="font-array text-[14px] text-[var(--accent)] hover:underline mt-1 inline-block"
       >
         {f.asset_name ?? f.asset_id}
       </Link>
@@ -230,7 +230,7 @@ function Card({
           value={f.owner ?? ""}
           onChange={(e) => onOwner(f, e.target.value || null)}
           title={f.owner ? `Assigned to ${f.owner}` : "Unassigned"}
-          className="bg-transparent font-array text-[9.5px] text-[var(--accent)] outline-none max-w-[130px] truncate"
+          className="bg-transparent font-array text-[14px] text-[var(--accent)] outline-none max-w-[180px] truncate"
         >
           <option value="">unassigned</option>
           {people.map((p) => (
@@ -248,7 +248,7 @@ function Card({
           type="date"
           value={f.due_at ? String(f.due_at).slice(0, 10) : ""}
           onChange={(e) => onDue(f, e.target.value)}
-          className={`ml-auto bg-transparent font-array text-[9.5px] outline-none ${
+          className={`ml-auto bg-transparent font-array text-[14px] outline-none ${
             f.overdue ? "text-[var(--rust)] font-bold" : "text-[var(--ink-soft)]"
           }`}
           title={dueLabel(f)}
@@ -282,7 +282,7 @@ function Column({
         isOver ? "bg-[var(--accent-wash)]" : "bg-[var(--wash)]"
       }`}
     >
-      <div className="flex justify-between font-array text-[9px] tracking-[0.09em] text-[var(--ink-soft)] mb-3">
+      <div className="flex justify-between font-array text-[14px] tracking-[0.09em] text-[var(--ink-soft)] mb-3">
         <span>{col.label}</span>
         <span>{findings.length}</span>
       </div>
@@ -290,7 +290,7 @@ function Column({
         <Card key={f.finding_id} f={f} {...rest} />
       ))}
       {findings.length === 0 && (
-        <p className="font-array text-[9.5px] text-[var(--ink-soft)] opacity-50 py-4 text-center">
+        <p className="font-array text-[14px] text-[var(--ink-soft)] opacity-50 py-4 text-center">
           nothing here
         </p>
       )}
@@ -388,17 +388,17 @@ export default function Remediation() {
   return (
     <main className="py-9">
       <div className="flex items-baseline gap-4">
-        <h1 className="text-[26px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h1 className="text-[28px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
           Remediation
         </h1>
         {board && (
-          <span className="font-array text-[10.5px] text-[var(--ink-soft)]">
+          <span className="font-array text-[14px] text-[var(--ink-soft)]">
             {board.findings.length} SHOWN · {board.overdue} OVERDUE ·{" "}
             {board.unassigned} UNASSIGNED
           </span>
         )}
       </div>
-      <p className="text-[13px] text-[var(--ink-soft)] mt-2 max-w-[70ch]">
+      <p className="text-[14px] text-[var(--ink-soft)] mt-2 max-w-[70ch]">
         A confirmed finding is not a fixed one. This is where an accepted flag gets an
         owner, a deadline and a state that moves, and every one of those changes joins
         the asset&apos;s audit chain.
@@ -409,7 +409,7 @@ export default function Remediation() {
           <button
             key={s.key}
             onClick={() => setScope(s.key)}
-            className={`font-array text-[9.5px] tracking-wider px-3 py-[6px] rounded-[3px] border transition-colors ${
+            className={`font-array text-[14px] tracking-wider px-3 py-[6px] rounded-[3px] border transition-colors ${
               scope === s.key
                 ? "bg-[var(--accent-wash)] text-[var(--accent)] border-[var(--accent)]"
                 : "text-[var(--ink-soft)] border-[var(--line)] hover:text-[var(--ink)]"
@@ -422,7 +422,7 @@ export default function Remediation() {
           <select
             value={team}
             onChange={(e) => setTeam(e.target.value)}
-            className="font-array text-[9.5px] tracking-wider bg-transparent border border-[var(--line)] rounded-[3px] px-3 py-[6px] outline-none text-[var(--ink-soft)]"
+            className="font-array text-[14px] tracking-wider bg-transparent border border-[var(--line)] rounded-[3px] px-3 py-[6px] outline-none text-[var(--ink-soft)]"
           >
             <option value="">ANY TEAM</option>
             {teams.map((t) => (
@@ -435,7 +435,7 @@ export default function Remediation() {
       </div>
 
       {error && (
-        <p className="attn-note mt-4 text-[12.5px]" role="alert">
+        <p className="attn-note mt-4 text-[14px]" role="alert">
           {error}
         </p>
       )}
@@ -446,7 +446,7 @@ export default function Remediation() {
         /* the whole estate is ~200 findings: four columns of that is unusable,
            so the ALL view is a list. Same data, same endpoint. */
         <div className="panel mt-5 overflow-hidden">
-          <div className="grid grid-cols-[92px_1fr_150px_120px_92px_84px] gap-3 px-4 py-3 font-array text-[9px] tracking-[0.09em] text-[var(--ink-soft)] border-b border-[var(--line)]">
+          <div className="grid grid-cols-[110px_minmax(0,1fr)_180px_150px_110px_100px] gap-4 px-4 py-3 font-array text-[14px] tracking-[0.09em] text-[var(--ink-soft)] border-b border-[var(--line)]">
             <span>SEVERITY</span>
             <span>FINDING</span>
             <span>ASSET</span>
@@ -457,7 +457,7 @@ export default function Remediation() {
           {board.findings.map((f) => (
             <div
               key={f.finding_id}
-              className="grid grid-cols-[92px_1fr_150px_120px_92px_84px] gap-3 px-4 py-3 items-center border-b border-[var(--line)] last:border-0"
+              className="grid grid-cols-[110px_minmax(0,1fr)_180px_150px_110px_100px] gap-4 px-4 py-3 items-center border-b border-[var(--line)] last:border-0"
             >
               <span
                 className={`${sevClass(f.severity)} justify-self-start`}
@@ -465,8 +465,8 @@ export default function Remediation() {
                 {(f.severity ?? "—").toUpperCase()}
               </span>
               <span>
-                <span className="block text-[13px] font-semibold">{f.plain}</span>
-                <span className="block font-array text-[9.5px] text-[var(--ink-soft)] mt-[2px]">
+                <span className="block text-[14px] font-semibold">{f.plain}</span>
+                <span className="block font-array text-[14px] text-[var(--ink-soft)] mt-[2px]">
                   {f.control_id} · {f.inspector}
                   {f.evidence_files?.length ? (
                     <span className="text-[var(--olive)]"> · {f.evidence_files.length} EVIDENCE</span>
@@ -475,25 +475,25 @@ export default function Remediation() {
               </span>
               <Link
                 href={`/assets/${f.asset_id}`}
-                className="font-array text-[9.5px] text-[var(--accent)] hover:underline truncate"
+                className="font-array text-[14px] text-[var(--accent)] hover:underline truncate"
               >
                 {f.asset_name ?? f.asset_id}
               </Link>
-              <span className="font-array text-[9.5px] text-[var(--ink-soft)] truncate">
+              <span className="font-array text-[14px] text-[var(--ink-soft)] truncate">
                 {f.owner ?? "unassigned"}
               </span>
               <span
-                className={`font-array text-[9.5px] ${f.overdue ? "text-[var(--rust)] font-bold" : "text-[var(--ink-soft)]"}`}
+                className={`font-array text-[14px] ${f.overdue ? "text-[var(--rust)] font-bold" : "text-[var(--ink-soft)]"}`}
               >
                 {dueLabel(f)}
               </span>
-              <span className="font-array text-[9px] tracking-wider text-[var(--ink-soft)]">
+              <span className="font-array text-[14px] tracking-wider text-[var(--ink-soft)]">
                 {f.status.replace("_", " ").toUpperCase()}
               </span>
             </div>
           ))}
           {board.findings.length === 0 && (
-            <p className="text-[var(--ink-soft)] p-6 text-[13px]">
+            <p className="text-[var(--ink-soft)] p-6 text-[14px]">
               {/* this is the ALL view, so the only thing that can be hiding rows
                   is the team selector. With no team chosen the board is genuinely
                   empty, and blaming a filter nobody set would send them hunting */}
@@ -510,7 +510,7 @@ export default function Remediation() {
           onDragEnd={onDragEnd}
           onDragCancel={() => setDragId(null)}
         >
-          <div className="grid grid-cols-4 gap-3 mt-5 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-5 items-start">
             {COLUMNS.map((col) => (
               <Column
                 key={col.key}
@@ -526,7 +526,7 @@ export default function Remediation() {
           <DragOverlay>
             {dragId ? (
               <div className="panel p-3 rotate-[1.5deg] border-2 border-[var(--ink)]">
-                <p className="text-[12.5px] font-semibold">
+                <p className="text-[14px] font-semibold">
                   {board.findings.find((f) => f.finding_id === dragId)?.plain}
                 </p>
               </div>

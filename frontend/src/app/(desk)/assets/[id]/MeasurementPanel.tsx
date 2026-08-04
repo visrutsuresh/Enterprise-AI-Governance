@@ -112,17 +112,17 @@ export default function MeasurementPanel({
   if (periods.length === 0)
     return (
       <section className="panel p-5 space-y-3">
-        <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
           Bias and drift
         </h2>
-        <p className="text-[12.5px] text-[var(--ink-soft)] max-w-[62ch]">
+        <p className="text-[14px] text-[var(--ink-soft)] max-w-[62ch]">
           Nothing measured yet, and that is the honest answer rather than a broken one. Bias and
           drift are properties of what a model DID, not of how it was described, so until a month of
           decisions lands here there is nothing truthful to show. Drop a CSV of{" "}
           <span className="font-mono">group, prediction, label</span> and every number below is
           computed from it.
         </p>
-        {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
+        {err && <p className="text-[14px] text-[var(--danger)]">{err}</p>}
         {fileInput}
         <button className="btn" onClick={() => picker.current?.click()}>
           Upload a sample
@@ -139,13 +139,13 @@ export default function MeasurementPanel({
   return (
     <section className="panel p-5 space-y-5">
       <div className="flex items-baseline gap-3 flex-wrap">
-        <h2 className="text-[16px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
           Bias, measured
         </h2>
         <select
           value={at}
           onChange={(e) => setAt(Number(e.target.value))}
-          className="field text-[12px] py-1"
+          className="field text-[14px] py-1"
         >
           {periods.map((p, i) => (
             <option key={p.period} value={i}>
@@ -153,29 +153,29 @@ export default function MeasurementPanel({
             </option>
           ))}
         </select>
-        <span className="text-[11.5px] font-array text-[var(--ink-soft)]">
+        <span className="text-[14px] font-array text-[var(--ink-soft)]">
           n={c.n.toLocaleString()} &middot; by {c.protected_attribute}
         </span>
       </div>
 
-      {err && <p className="text-[12.5px] text-[var(--danger)]">{err}</p>}
+      {err && <p className="text-[14px] text-[var(--danger)]">{err}</p>}
 
       <div
         className={`rounded-[3px] p-4 ${
           pass ? "border border-[var(--line)]" : "border-2 border-[var(--ink)] bg-[var(--wash)]"
         }`}
       >
-        <div className="text-[11px] uppercase tracking-wide text-[var(--ink-soft)]">
+        <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)]">
           the definition this asset is held to
         </div>
         <div className="flex items-center gap-4 flex-wrap mt-1">
           <span
-            className={`text-[30px] ${pass ? "font-semibold" : "font-extrabold"}`}
+            className={`text-[32px] ${pass ? "font-semibold" : "font-extrabold"}`}
             style={{ fontFamily: "var(--font-cabinet)" }}
           >
             {value.toFixed(3)}
           </span>
-          <span className="text-[12.5px] text-[var(--ink-soft)] flex-1 min-w-[220px]">
+          <span className="text-[14px] text-[var(--ink-soft)] flex-1 min-w-[220px]">
             {m.label}, threshold {m.better === "high" ? "at least" : "at most"} {m.threshold}.
             <br />
             {m.plain}
@@ -194,7 +194,7 @@ export default function MeasurementPanel({
               setMetric(e.target.value);
               setAsking(true);
             }}
-            className="field text-[13px]"
+            className="field text-[14px]"
           >
             {Object.entries(cat).map(([k, v]) => (
               <option key={k} value={k}>
@@ -210,7 +210,7 @@ export default function MeasurementPanel({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="why does this definition fit this asset?"
-                className="field text-[13px] flex-1 min-w-[220px]"
+                className="field text-[14px] flex-1 min-w-[220px]"
               />
               <button className="btn" onClick={bind}>
                 Bind it
@@ -233,7 +233,7 @@ export default function MeasurementPanel({
                   ok ? "border border-[var(--line)]" : "border-2 border-[var(--ink)] bg-[var(--wash)]"
                 }`}
               >
-                <div className="text-[9.5px] font-array tracking-wider text-[var(--ink-soft)]">
+                <div className="text-[14px] font-array tracking-wider text-[var(--ink-soft)]">
                   {v.short}
                 </div>
                 <div
@@ -243,7 +243,7 @@ export default function MeasurementPanel({
                   {val.toFixed(3)}
                 </div>
                 {!ok && (
-                  <div className="text-[9px] font-array tracking-wider text-[var(--ink)] mt-0.5">
+                  <div className="text-[14px] font-array tracking-wider text-[var(--ink)] mt-0.5">
                     BREACH
                   </div>
                 )}
@@ -251,15 +251,15 @@ export default function MeasurementPanel({
             );
           })}
         </div>
-        <p className="text-[11.5px] text-[var(--ink-soft)] mt-2 max-w-[64ch]">
+        <p className="text-[14px] text-[var(--ink-soft)] mt-2 max-w-[64ch]">
           These cannot all hold at once unless every group has the same base rate. That is why the
           one above is a signed choice and not a default.
         </p>
       </div>
 
-      <table className="w-full text-[13px]">
+      <table className="w-full text-[14px]">
         <thead>
-          <tr className="text-left text-[9.5px] font-array tracking-wider uppercase text-[var(--ink-soft)] border-b border-[var(--line)]">
+          <tr className="text-left text-[14px] font-array tracking-wider uppercase text-[var(--ink-soft)] border-b border-[var(--line)]">
             <th className="py-2">group</th>
             <th>n</th>
             <th>approved</th>
@@ -275,7 +275,7 @@ export default function MeasurementPanel({
               className="border-b border-[var(--line)] last:border-0"
               style={g === f.worst_group ? { background: "var(--rust-wash)" } : undefined}
             >
-              <td className="py-2 font-mono text-[12px]">{g}</td>
+              <td className="py-2 font-mono text-[14px]">{g}</td>
               <td className="text-[var(--ink-soft)]">{r.n.toLocaleString()}</td>
               <td className="font-semibold">{pct(r.selection_rate)}</td>
               <td>{pct(r.tpr)}</td>
@@ -289,15 +289,15 @@ export default function MeasurementPanel({
       <div className="pt-4 border-t border-[var(--line)]">
         <h3 className="text-[14px] font-semibold">Drift, measured</h3>
         {c.drift.length === 0 ? (
-          <p className="text-[12.5px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
+          <p className="text-[14px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
             No drift signals in this snapshot. A CSV of decisions carries no feature distributions,
             so drift needs the fuller JSON payload with a reference window to compare against.
           </p>
         ) : (
           <>
-            <table className="w-full text-[13px] mt-2">
+            <table className="w-full text-[14px] mt-2">
               <thead>
-                <tr className="text-left text-[9.5px] font-array tracking-wider uppercase text-[var(--ink-soft)] border-b border-[var(--line)]">
+                <tr className="text-left text-[14px] font-array tracking-wider uppercase text-[var(--ink-soft)] border-b border-[var(--line)]">
                   <th className="py-2">signal</th>
                   <th>kind</th>
                   <th>psi</th>
@@ -307,8 +307,8 @@ export default function MeasurementPanel({
               <tbody>
                 {c.drift.map((d) => (
                   <tr key={d.name} className="border-b border-[var(--line)] last:border-0">
-                    <td className="py-2 font-mono text-[12px]">{d.name}</td>
-                    <td className="text-[var(--ink-soft)] text-[11.5px]">{d.kind}</td>
+                    <td className="py-2 font-mono text-[14px]">{d.name}</td>
+                    <td className="text-[var(--ink-soft)] text-[14px]">{d.kind}</td>
                     <td className={BAND_WEIGHT[d.band] ?? ""}>{d.psi.toFixed(3)}</td>
                     <td>
                       <div className="h-[7px] rounded-[2px] bg-[var(--line)] overflow-hidden max-w-[120px]">
@@ -318,7 +318,7 @@ export default function MeasurementPanel({
                           title={`PSI ${d.psi.toFixed(3)} (${d.band})`}
                         />
                       </div>
-                      <span className={`text-[11px] ${BAND_WEIGHT[d.band] ?? "text-[var(--ink-soft)]"}`}>
+                      <span className={`text-[14px] ${BAND_WEIGHT[d.band] ?? "text-[var(--ink-soft)]"}`}>
                         {d.band}
                       </span>
                     </td>
@@ -326,7 +326,7 @@ export default function MeasurementPanel({
                 ))}
               </tbody>
             </table>
-            <p className="text-[11.5px] text-[var(--ink-soft)] mt-2 max-w-[64ch]">
+            <p className="text-[14px] text-[var(--ink-soft)] mt-2 max-w-[64ch]">
               Under 0.10 is stable, 0.10 to 0.25 moderate, above 0.25 significant.
               {c.performance.auc != null && (
                 <>

@@ -81,7 +81,7 @@ export default function EffectRail({
       className="flex justify-between items-baseline py-2.5 border-t border-[var(--line)] first:border-t-0 px-2 -mx-2 rounded transition-colors"
       style={was[k] !== undefined ? { background: "var(--accent-wash)" } : undefined}
     >
-      <span className="text-[12.5px] text-[var(--ink-soft)]">{label}</span>
+      <span className="text-[14px] text-[var(--ink-soft)]">{label}</span>
       <span className="text-right">
         <span
           className={`text-[15px] ${alarm ? ALARM : CALM}`}
@@ -90,7 +90,7 @@ export default function EffectRail({
           {value}
         </span>
         {was[k] !== undefined && (
-          <span className="block font-array text-[9px] tracking-wider text-[var(--accent)]">
+          <span className="block font-array text-[14px] tracking-wider text-[var(--accent)]">
             was {was[k]}
           </span>
         )}
@@ -102,7 +102,7 @@ export default function EffectRail({
 
   return (
     <div className="lg:sticky lg:top-5 lg:border-l border-[var(--line)] lg:pl-6 pt-6 lg:pt-0 border-t lg:border-t-0">
-      <div className="font-array text-[10px] tracking-[0.16em] uppercase text-[var(--ink-soft)] mb-3">
+      <div className="font-array text-[14px] tracking-[0.16em] uppercase text-[var(--ink-soft)] mb-3">
         what the record adds up to
       </div>
       {row("tier", "EU AI Act tier", snap.tier, tier === "high" || tier === "unacceptable")}
@@ -113,7 +113,7 @@ export default function EffectRail({
       {row("corrected", "fields corrected", snap.corrected)}
 
       <div className="mt-7">
-        <div className="font-array text-[10px] tracking-[0.16em] uppercase text-[var(--ink-soft)] mb-2">
+        <div className="font-array text-[14px] tracking-[0.16em] uppercase text-[var(--ink-soft)] mb-2">
           last on the trail
         </div>
         <ul>
@@ -121,7 +121,7 @@ export default function EffectRail({
             <li
               key={i}
               title={e.step}
-              className={`font-array text-[10px] leading-relaxed py-1.5 border-t border-[var(--line)] truncate ${
+              className={`font-array text-[14px] leading-relaxed py-1.5 border-t border-[var(--line)] truncate ${
                 i === arr.length - 1 ? "text-[var(--accent)]" : "text-[var(--ink-soft)]"
               }`}
             >
@@ -129,7 +129,7 @@ export default function EffectRail({
             </li>
           ))}
           {chain.length === 0 && (
-            <li className="font-array text-[10px] text-[var(--ink-soft)]">
+            <li className="font-array text-[14px] text-[var(--ink-soft)]">
               empty chain: a seeded fixture, no pipeline ever ran on it
             </li>
           )}
