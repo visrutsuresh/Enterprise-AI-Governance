@@ -1,7 +1,9 @@
 """Load the authored estate (data/estate/assets.json) into Postgres.
 
-Idempotent: wipes ONLY source='seed' rows first, then reloads, so re-running
-never duplicates and never touches a real pipeline-assessed asset (D44).
+Idempotent: wipes ONLY the AUTHORED rows first (source 'seed' or 'manual'),
+then reloads, so re-running never duplicates and never touches a real
+pipeline-assessed asset (D44). 'pipeline' is the one source this file never
+writes and never deletes.
 Seeded assets carry an EMPTY audit chain on purpose: no pipeline ran, and a
 fabricated chain would contradict the tamper-evident story (the provenance test).
 
@@ -101,12 +103,12 @@ def main():
     assets = json.loads(ESTATE.read_text())
     store.init_db()
     with store._connect() as conn:
-        wiped = conn.execute("DELETE FROM assets WHERE source = 'seed'").rowcount
+        wiped = conn.execute("DELETE FROM assets WHERE source IN ('seed', 'manual')").rowcount
     for i, a in enumerate(assets):
         seed_remediation(a.get("assessment") or {}, i)
         store.save(to_state(a))
     with store._connect() as conn:
-        n = conn.execute("SELECT COUNT(*) FROM assets WHERE source = 'seed'").fetchone()[0]
+        n = conn.execute("SELECT COUNT(*) FROM assets WHERE source IN ('seed', 'manual')").fetchone()[0]
     print(f"wiped {wiped} old seed rows, loaded {n}/{len(assets)}")
     assert n == len(assets), "seed count mismatch"
 

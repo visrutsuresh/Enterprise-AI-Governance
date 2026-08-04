@@ -10186,5 +10186,89 @@
       },
       "decision": "flagged"
     }
+  },
+  {
+    "asset_id": "AI-0901",
+    "type": "agent",
+    "name": "Contract Clause Router",
+    "owner": "Wei Lim, Legal Ops",
+    "purpose": "Routes incoming contract clauses to the right reviewer queue",
+    "lifecycle": "development",
+    "deployment": "on-prem datacenter, internal API",
+    "data_touched": [
+      "contract text"
+    ],
+    "third_party": null,
+    "human_oversight": "Wei Lim reviews a weekly sample",
+    "source": "manual",
+    "assessment": {
+      "risk_tier": "",
+      "findings": [],
+      "risk": {},
+      "inspector_status": {}
+    }
+  },
+  {
+    "asset_id": "AI-0902",
+    "type": "model",
+    "name": "Warehouse Demand Forecaster",
+    "owner": "Ana Duarte, Supply Chain",
+    "purpose": "Predicts weekly stock requirements per depot",
+    "lifecycle": "production",
+    "deployment": "AWS eu-west-1, batch job",
+    "data_touched": [
+      "sales history"
+    ],
+    "third_party": null,
+    "human_oversight": "Ana Duarte signs off each quarter",
+    "source": "manual",
+    "assessment": {
+      "risk_tier": "",
+      "findings": [],
+      "risk": {},
+      "inspector_status": {}
+    }
+  },
+  {
+    "asset_id": "AI-0903",
+    "type": "model",
+    "name": "Shift Roster Optimiser",
+    "owner": "Tom Weller, People Ops",
+    "purpose": "Builds fair shift rosters across warehouse teams",
+    "lifecycle": "proposed",
+    "deployment": "not deployed",
+    "data_touched": [
+      "employee records"
+    ],
+    "third_party": "Optimly Cloud",
+    "human_oversight": "",
+    "source": "manual",
+    "assessment": {
+      "risk_tier": "",
+      "findings": [],
+      "risk": {},
+      "inspector_status": {}
+    }
+  },
+  {
+    "asset_id": "AI-0904",
+    "type": "agent",
+    "name": "Internal Wiki Answerer",
+    "owner": "Priya Raman, IT",
+    "purpose": "Answers staff questions from the internal wiki",
+    "lifecycle": "retired",
+    "deployment": "decommissioned",
+    "data_touched": [
+      "internal documents"
+    ],
+    "third_party": null,
+    "human_oversight": "IT service desk spot-checks",
+    "source": "manual",
+    "assessment": {
+      "risk_tier": "",
+      "findings": [],
+      "risk": {},
+      "inspector_status": {}
+    }
   }
 ]
