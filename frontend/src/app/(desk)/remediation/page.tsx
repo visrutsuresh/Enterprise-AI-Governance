@@ -393,7 +393,7 @@ export default function Remediation() {
         </h1>
         {board && (
           <span className="font-array text-[13px] text-[var(--ink-soft)]">
-            {board.findings.length} SHOWN · {board.overdue} OVERDUE ·{" "}
+            {board.findings.length} FINDINGS · {board.overdue} OVERDUE ·{" "}
             {board.unassigned} UNASSIGNED
           </span>
         )}

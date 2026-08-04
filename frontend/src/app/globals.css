@@ -668,14 +668,14 @@ h3 {
 
 /* the calendar button sat at the far right edge of a wide input, disconnected
    from the date it belongs to. Pull it in next to the text. */
+/* the picker button belongs immediately after the year, not floated to the far
+   right of a wide input. Sizing the field to its content puts it there. */
 input[type="date"] {
-  position: relative;
+  width: min-content;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  left: 0;
-  margin: 0;
-  padding: 0 4px 0 0;
+  margin-left: 6px;
+  padding: 0;
   opacity: 0.55;
   cursor: pointer;
 }
