@@ -20,6 +20,23 @@ _INSPECTOR_CODE = {
 }
 
 
+# --- generation budget, per agent --------------------------------------------
+# One blanket 4096 was sized for the worst case (an inspector emitting several
+# findings) and then charged to every agent, including ones whose whole answer is
+# a team name. Each number below is the smallest that fits that agent's finish
+# JSON with slack for its reasoning line.
+TOKENS = {
+    "inventory": 1024,           # one flat record, ten short fields
+    "orchestrate": 512,          # a list of five names and one sentence
+    "inspector": 4096,           # several findings, each with five prose fields
+    "model_monitoring": 2048,    # drift findings, usually zero or one
+    "regulatory_intel": 1024,    # a handful of plain sentences
+    "audit_reporting": 2048,     # a few short paragraphs
+    "approval_workflow": 1024,   # a team, a reason, and what it did
+    "executive_advisory": 2048,  # three paragraphs
+}
+
+
 def _asset_sheet(state: dict) -> str:
     # the asset record as labelled lines; findings must trace to these facts
     a = state.get("asset", {})
@@ -62,7 +79,7 @@ def _stamp(f, name: str, asset_id: str, n: int):
 
 def _run_inspector(name: str, system: str, state: dict, allowed: list[str]) -> tuple[dict, dict]:
     # run one inspector to its finish JSON; keep only findings that pass valid_finding
-    result = react(system, _asset_sheet(state), allowed)
+    result = react(system, _asset_sheet(state), allowed, max_new_tokens=TOKENS["inspector"])
     raw = result.get("findings", []) or []
     asset_id = state.get("asset_id", "unknown")
     kept, dropped = [], 0
@@ -143,7 +160,7 @@ def _canonical(record: dict, asset_id: str) -> dict:
 
 
 def inventory_agent(state: dict) -> dict:
-    result = react(INVENTORY_SYSTEM, f"Description to register:\n{state.get('description', '')}", ["registry_read"])
+    result = react(INVENTORY_SYSTEM, f"Description to register:\n{state.get('description', '')}", ["registry_read"], max_new_tokens=TOKENS["inventory"])
     return _canonical(result, state.get("asset_id", "unknown"))
 
 
@@ -178,7 +195,7 @@ To finish, result is:
 def orchestrate_agent(state: dict) -> dict:
     from app.state import INSPECTORS
 
-    result = react(ORCHESTRATE_SYSTEM, _asset_sheet(state), ["pack_read"])
+    result = react(ORCHESTRATE_SYSTEM, _asset_sheet(state), ["pack_read"], max_new_tokens=TOKENS["orchestrate"])
     picked = [i for i in (result.get("applicable_inspectors") or []) if i in INSPECTORS]
     # the two always-on inspectors are enforced in code, not trusted to the model
     for must in ("policy_compliance", "risk_assessment"):
@@ -368,7 +385,7 @@ Tools available:
 def model_monitoring_agent(state: dict) -> tuple[list, str]:
     """Returns (stamped valid findings, note). Offset keeps finding ids unique
     on top of the ones the per-asset graph already wrote."""
-    result = react(MODEL_MONITORING_SYSTEM, _asset_sheet(state), ["registry_read", "history_read"])
+    result = react(MODEL_MONITORING_SYSTEM, _asset_sheet(state), ["registry_read", "history_read"], max_new_tokens=TOKENS["model_monitoring"])
     raw = result.get("findings", []) or []
     existing = len((state.get("asset", {}).get("assessment") or {}).get("findings", []))
     kept = []
@@ -380,12 +397,12 @@ def model_monitoring_agent(state: dict) -> tuple[list, str]:
 
 
 def regulatory_intel_agent(estate_summary: str) -> list:
-    result = react(REGULATORY_INTEL_SYSTEM, estate_summary, ["framework_read"])
+    result = react(REGULATORY_INTEL_SYSTEM, estate_summary, ["framework_read"], max_new_tokens=TOKENS["regulatory_intel"])
     return [str(n) for n in (result.get("notes") or [])]
 
 
 def audit_reporting_agent(sweep_summary: str) -> str:
-    result = react(AUDIT_REPORTING_SYSTEM, sweep_summary, ["registry_read", "audit_read"])
+    result = react(AUDIT_REPORTING_SYSTEM, sweep_summary, ["registry_read", "audit_read"], max_new_tokens=TOKENS["audit_reporting"])
     return str(result.get("report", ""))
 
 
@@ -394,16 +411,33 @@ def audit_reporting_agent(sweep_summary: str) -> str:
 APPROVAL_WORKFLOW_SYSTEM = (
     """
 You are the Approval Workflow agent in an enterprise AI governance pipeline, woken on
-demand for ONE flag. Decide which team owns it: legal (contracts, regulation exposure,
-prohibited practices), risk (tiering, oversight gaps, model failure), security (vendors,
-access, data leaving the house), or compliance (internal policy paperwork, reviews,
-registers). Use registry_read if you need the asset's context.
+demand for ONE flag. You do not write a recommendation for somebody else to apply.
+You DO THE WORK yourself, with tools, and then report what you did.
+
+Decide which desk owns this flag: legal (contracts, regulation exposure, prohibited
+practices), risk (tiering, oversight gaps, model failure), security (vendors, access,
+data leaving the house), or compliance (internal policy paperwork, reviews, registers).
+
+Work in this order:
+  1. registry_read on the asset if you need its context.
+  2. route_flag to send the flag to the desk you chose. This really moves it.
+  3. If the finding is severity high, also put a named human on it with
+     propose_remediation. That call is TWO-PHASE: your first call returns a
+     confirm_code and changes nothing, then you call it AGAIN with code=<that code>
+     to commit. Pick a deadline 14 days out for high severity, 30 for anything else,
+     as a plain ISO date like 2026-08-18. Use the asset owner as the person unless
+     the finding already names someone better.
 
 Tools available:
-  registry_read(asset_id)  -> the asset the flag sits on
+  registry_read(asset_id)                        -> the asset the flag sits on
+  route_flag(asset_id, finding_id, team)         -> ACTS: sends the flag to a desk
+  propose_remediation(asset_id, finding_id, owner, due_at, code) -> ACTS: assigns
+                                                    the work, two-phase
 
 To finish, result is:
-  {"team": "legal" | "risk" | "security" | "compliance", "why": "<one plain sentence>"}
+  {"team": "<the desk you routed it to>",
+   "why": "<one plain sentence>",
+   "actions": ["<what you actually did, one short line each>"]}
 """
     + MOVE_FORMAT
 )
@@ -428,14 +462,32 @@ To finish, result is:
 
 
 def approval_workflow_agent(finding: dict, asset_id: str) -> dict:
-    context = f"Flag to route (on asset {asset_id}):\n{finding}"
-    result = react(APPROVAL_WORKFLOW_SYSTEM, context, ["registry_read"])
+    """The one agent that CHANGES the estate. It routes the flag itself with a
+    tool rather than returning a suggestion for the API to apply, and it may put
+    an owner and a deadline on the work behind a two-phase confirm."""
+    from app.state import ROUTING_TEAMS
+
+    context = (
+        f"Flag to route (on asset {asset_id}):\n{finding}\n"
+        f"Its asset_id is {asset_id!r} and its finding_id is {finding.get('finding_id')!r}: "
+        "pass both to every tool exactly as written."
+    )
+    result = react(
+        APPROVAL_WORKFLOW_SYSTEM,
+        context,
+        ["registry_read", "route_flag", "propose_remediation"],
+        max_new_tokens=TOKENS["approval_workflow"],
+    )
     team = str(result.get("team", "")).lower()
-    if team not in ("legal", "risk", "security", "compliance"):
+    if team not in ROUTING_TEAMS:
         team = "compliance"  # ponytail: unknown team defaults to the catch-all desk
-    return {"team": team, "why": str(result.get("why", ""))}
+    return {
+        "team": team,
+        "why": str(result.get("why", "")),
+        "actions": [str(a) for a in (result.get("actions") or [])],
+    }
 
 
 def executive_advisory_agent(scorecard: str) -> str:
-    result = react(EXECUTIVE_ADVISORY_SYSTEM, scorecard, ["registry_read", "audit_read"])
+    result = react(EXECUTIVE_ADVISORY_SYSTEM, scorecard, ["registry_read", "audit_read"], max_new_tokens=TOKENS["executive_advisory"])
     return str(result.get("brief", ""))

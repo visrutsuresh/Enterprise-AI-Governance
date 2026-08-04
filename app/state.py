@@ -35,6 +35,10 @@ SWEEP_AGENTS = ["model_monitoring", "regulatory_intel", "fairness_monitoring"]
 # the four EU AI Act tiers, worst first (framework pack detail lives in data/)
 RISK_TIERS = ("unacceptable", "high", "limited", "minimal")
 
+# the desks a flag can be routed to; one source of truth for the agent, its
+# write tool and the API, so a new desk is a one-line change
+ROUTING_TEAMS = ("legal", "risk", "security", "compliance")
+
 
 class GovernanceState(TypedDict):
     asset_id: str

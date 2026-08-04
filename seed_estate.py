@@ -36,20 +36,47 @@ SEEDED_FLOW = [
     ("in_progress", -3, True),        # already late, so OVERDUE is never empty
     ("closed", -10, True),
     ("open", None, False),
+    ("dismissed", None, True),        # every board state is represented, including this one
 ]
+
+# Every desk a flag can sit on, so the TEAM filter has something under each tab.
+# None keeps a slice of the backlog unrouted, which is the state a new finding
+# starts in and the one the approval agent is woken to change.
+SEEDED_ROUTING = ["legal", "risk", "security", "compliance", None, "risk", None]
+
+# A dismissal is only legitimate WITH a written reason, so the seeder never
+# produces one without it. Approvals are here too, because "confirmed as raised"
+# is a different state from "never looked at" and the board has to show both.
+DISMISS_REASON = "Compensating control already signed off by the risk committee; recorded here rather than re-litigated."
+APPROVE_REASON = "Confirmed as raised. The remediation work stands."
 
 
 def seed_remediation(assessment: dict, asset_index: int) -> None:
-    """Give each authored finding an owner, a deadline and a state, in place."""
+    """Give each authored finding an owner, a deadline, a desk and a state, in place."""
     today = date.today()
+    reviewer = REVIEWERS[asset_index % len(REVIEWERS)] if REVIEWERS else "reviewer@example.com"
     for i, f in enumerate(assessment.get("findings") or []):
-        if (f.get("status") or "").lower() == "dismissed":
-            continue  # a dismissal is a recorded judgement with a reason; never overwrite it
         status, offset, assign = SEEDED_FLOW[(asset_index + i) % len(SEEDED_FLOW)]
         f["status"] = status
         f["due_at"] = (today + timedelta(days=offset)).isoformat() if offset is not None else None
         f["owner"] = REVIEWERS[(asset_index + i) % len(REVIEWERS)] if assign and REVIEWERS else None
         f["evidence_files"] = f.get("evidence_files") or []
+        f["routed_to"] = SEEDED_ROUTING[(asset_index + i) % len(SEEDED_ROUTING)]
+
+        # a dismissed finding MUST carry the override that dismissed it, or the
+        # board would show a judgement nobody made
+        if status == "dismissed":
+            f["review"] = {"verdict": "overridden", "reason": DISMISS_REASON,
+                           "by": reviewer, "at": today.isoformat()}
+        elif status == "closed":
+            # closed work was confirmed real first, then done, and the proof is attached
+            f["review"] = {"verdict": "approved", "reason": APPROVE_REASON,
+                           "by": reviewer, "at": today.isoformat()}
+            f["evidence_files"] = [{
+                "id": 0, "filename": f"{f['finding_id']}-evidence.pdf",
+                "size": 18_432, "uploaded_by": f["owner"] or reviewer,
+                "at": today.isoformat(), "seeded": True,
+            }]
 
 
 def to_state(asset: dict) -> dict:

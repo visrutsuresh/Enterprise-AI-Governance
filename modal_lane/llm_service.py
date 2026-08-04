@@ -23,7 +23,9 @@ cache = modal.Volume.from_name("hf-cache", create_if_missing=True)
     volumes={"/cache": cache},
     timeout=600,  # ~60s load + one long generation, with slack
     scaledown_window=300,  # 5 warm minutes; re-warming costs ~60s, not 5 min
-    max_containers=1,  # parallel inspectors queue on one GPU instead of autoscaling a second bill
+    max_containers=4,  # one per parallel inspector: the fan-out is only real if the lane can serve it.
+    # Was 1, which made every 'parallel' inspector queue behind the one before it. Raising this is a
+    # DELIBERATE cost increase (CEO call 2026-08-04): up to 4 GPUs warm at once during an assessment.
     secrets=[modal.Secret.from_name("llm-lane-token")],
 )
 class LLM:

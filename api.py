@@ -341,13 +341,32 @@ def route_flag(finding_id: str, user: User = Depends(require_reviewer)):
         raise HTTPException(status_code=404, detail="no asset for that finding id")
     if finding is None:
         raise HTTPException(status_code=404, detail="finding not found on its asset")
-    routing = approval_workflow_agent(finding, state["asset_id"])
-    finding["routed_to"] = routing["team"]
-    state["audit"] = audit.chain_as(state.get("audit") or [],
-                                    [f"approval_workflow: {finding_id} routed to {routing['team']} ({routing['why']})"],
-                                    by=user.email)
-    store.save(state)
-    return {"finding_id": finding_id, **routing}
+    asset_id = state["asset_id"]
+    routing = approval_workflow_agent(finding, asset_id)
+    # the agent ROUTES ITSELF now, with route_flag, so it has already written and
+    # hash-chained its own work. Re-read rather than re-applying, or this handler
+    # would save a stale snapshot straight over the agent's writes.
+    state, _assessment, finding = _find_finding(finding_id)
+    if finding is None:
+        raise HTTPException(status_code=404, detail="finding not found on its asset")
+    if not finding.get("routed_to"):
+        # the agent finished without calling the tool; honour its stated answer so a
+        # flag is never left unrouted just because the model skipped a step
+        finding["routed_to"] = routing["team"]
+        state["audit"] = audit.chain_as(
+            state.get("audit") or [],
+            [f"approval_workflow: {finding_id} routed to {routing['team']} (applied by API, agent did not call the tool)"],
+            by=user.email,
+        )
+        store.save(state)
+    return {
+        "finding_id": finding_id,
+        **routing,
+        "routed_to": finding.get("routed_to"),
+        "owner": finding.get("owner"),
+        "due_at": finding.get("due_at"),
+        "status": finding.get("status"),
+    }
 
 
 # --- exports: the artifact you hand an external auditor ----------------------

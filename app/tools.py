@@ -1,7 +1,8 @@
-"""The seven read-only tools the twelve agents share.
+"""The tools the twelve agents share: seven that READ, two that ACT.
 
 Agents differ mostly in which subset they are handed (the roster table in
-the design spec, section 3). Everything here READS; no tool writes state.
+the design spec, section 3). The read tools come first; the WRITE tools are at
+the bottom of the file behind their own rules.
 run_tool swallows every exception into an "ERROR: ..." string the agent
 reads as a normal observation, so a bad path degrades, never crashes.
 All data access goes through packs.py / store.py / precedent.py, which are
@@ -107,3 +108,87 @@ def pack_read() -> dict:
         "framework_pack": {"pack_id": f["pack_id"], "name": f.get("name", ""),
                            "tiers": [{"tier": t["tier"], "rank": t["rank"]} for t in f["tiers"]]},
     }
+
+
+# --- WRITE tools: the agents can now act, not only look -----------------------
+#
+# Everything above READS. Everything below CHANGES the estate, so it plays by
+# stricter rules, carried over from #1's proven refund/cancellation pattern:
+#
+#   1. Every write appends to that asset's hash chain, attributed to the agent.
+#   2. A write that assigns work to a named human is TWO-PHASE: the first call
+#      returns a confirm code and changes nothing; only a call carrying the
+#      matching code commits. The code is derived from the target id, so it is
+#      recomputable and never stored.
+#   3. Nothing here can block, delete, dismiss or approve. An agent proposes and
+#      routes; a human still decides. That is the product promise, unchanged.
+
+import hashlib
+
+from app.state import ROUTING_TEAMS
+
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/L, so a human can read it aloud
+
+
+def _confirm_code(target_id: str) -> str:
+    # deterministic 5-char code per target; recomputable, so we verify without storing it
+    digest = hashlib.sha256(target_id.encode()).digest()
+    return "".join(_CODE_ALPHABET[b % len(_CODE_ALPHABET)] for b in digest[:5])
+
+
+def _finding_on(asset_id: str, finding_id: str):
+    state = store.get(asset_id)
+    if state is None:
+        return None, None
+    for f in ((state.get("asset", {}).get("assessment") or {}).get("findings") or []):
+        if f.get("finding_id") == finding_id:
+            return state, f
+    return state, None
+
+
+def _commit(state: dict, entry: str) -> None:
+    state["audit"] = audit.chain_as(state.get("audit") or [], [entry], by="agent")
+    store.save(state)
+
+
+@tool
+def route_flag(asset_id: str, finding_id: str, team: str) -> dict:
+    """Send a flag to the desk that owns it. Single-phase on purpose: routing is
+    not destructive, it decides who reads something, and it never blocks anything."""
+    team = str(team).strip().lower()
+    if team not in ROUTING_TEAMS:
+        return {"status": "error", "message": f"team must be one of: {', '.join(ROUTING_TEAMS)}"}
+    state, finding = _finding_on(asset_id, finding_id)
+    if state is None:
+        return {"status": "error", "message": f"no asset {asset_id!r}"}
+    if finding is None:
+        return {"status": "error", "message": f"no finding {finding_id!r} on {asset_id}"}
+    finding["routed_to"] = team
+    _commit(state, f"agent_action route_flag: {finding_id} routed to {team}")
+    return {"status": "routed", "finding_id": finding_id, "team": team}
+
+
+@tool
+def propose_remediation(asset_id: str, finding_id: str, owner: str, due_at: str, code: str = "") -> dict:
+    """Put a named human on the hook with a deadline. Two-phase: the first call
+    returns a code and changes nothing, a matching code commits."""
+    state, finding = _finding_on(asset_id, finding_id)
+    if state is None:
+        return {"status": "error", "message": f"no asset {asset_id!r}"}
+    if finding is None:
+        return {"status": "error", "message": f"no finding {finding_id!r} on {asset_id}"}
+    if (finding.get("status") or "open").lower() == "dismissed":
+        return {"status": "error", "message": "that finding was dismissed by a reviewer; it takes no owner"}
+    expected = _confirm_code(finding_id)
+    if str(code).strip().upper() != expected:
+        return {
+            "status": "awaiting_confirmation",
+            "confirm_code": expected,
+            "message": f"Call again with code={expected} to assign {owner} a deadline of {due_at}.",
+        }
+    finding["owner"] = str(owner).strip() or None
+    finding["due_at"] = str(due_at).strip() or None
+    if (finding.get("status") or "open").lower() == "open":
+        finding["status"] = "in_progress"
+    _commit(state, f"agent_action propose_remediation: {finding_id} owner={finding['owner']} due={finding['due_at']}")
+    return {"status": "assigned", "finding_id": finding_id, "owner": finding["owner"], "due_at": finding["due_at"]}

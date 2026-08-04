@@ -62,15 +62,25 @@ def _parse(raw: str) -> dict:
         return obj
 
 
-def react(system: str, context: str, allowed_tools: list[str], max_steps: int = MAX_STEPS) -> dict:
+def react(
+    system: str,
+    context: str,
+    allowed_tools: list[str],
+    max_steps: int = MAX_STEPS,
+    max_new_tokens: int = 4096,
+) -> dict:
     """Reason -> act -> observe loop. Returns the agent's finish result dict.
-    Blocks repeated tool calls and forces a decision near the cap (#1 lessons)."""
+    Blocks repeated tool calls and forces a decision near the cap (#1 lessons).
+
+    max_new_tokens is PER AGENT. 4096 was chosen to stop an inspector's
+    multi-finding JSON truncating mid-string, then got applied to the
+    orchestrator's one-line answer too, which is most of a generation budget
+    spent on nothing. Callers pass their own size from agents.TOKENS."""
     transcript, cache, redundant = "", {}, 0
     for step in range(max_steps):
         must_finish = redundant >= 2 or step >= max_steps - 1
         hint = "\nSTOP calling tools. Reply ONLY with the finish JSON." if must_finish else ""
-        # 1024 default truncated multi-finding finish JSON mid-string; 4096 matches Papyrus
-        move = _parse(router.think(f"{system}\n\n{context}\n{transcript}{hint}\nYour JSON:", max_new_tokens=4096))
+        move = _parse(router.think(f"{system}\n\n{context}\n{transcript}{hint}\nYour JSON:", max_new_tokens=max_new_tokens))
         action = move.get("action")
         if action == "finish":
             return move.get("result", {})
