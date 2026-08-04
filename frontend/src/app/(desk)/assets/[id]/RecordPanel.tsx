@@ -86,28 +86,28 @@ export default function RecordPanel({
   }
 
   return (
-    <section className="panel p-5 space-y-4">
+    <section className="panel p-7 space-y-6">
       <div>
-        <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h2 className="text-[19px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
           The record
         </h2>
-        <p className="text-[14px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
+        <p className="text-[15px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
           Written by the inventory agent from one paragraph of prose. Click any value to correct it.
           A field marked with a dot feeds the rules, so correcting it re-scores the asset with no
           model call and no cost.
         </p>
       </div>
 
-      {err && <p className="text-[14px] text-[var(--danger)]">{err}</p>}
+      {err && <p className="text-[15px] text-[var(--danger)]">{err}</p>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-10 gap-y-6">
         {FIELDS.map((f) => {
           const src = fieldSource?.[f.key];
           const raw = asset[f.key];
           const shown = Array.isArray(raw) ? raw.join(", ") : (raw as string | null);
           return (
             <div key={f.key}>
-              <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)] flex items-center gap-1.5">
+              <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)] flex items-center gap-1.5">
                 {f.label}
                 <span
                   title={src ? `corrected by ${src.by}` : "as the inventory agent wrote it"}
@@ -116,7 +116,7 @@ export default function RecordPanel({
                 />
                 {f.scoring && (
                   <span
-                    className="text-[14px] text-[var(--ink-soft)]"
+                    className="text-[15px] text-[var(--ink-soft)]"
                     title="changing this re-scores the asset"
                   >
                     &#9679;
@@ -131,7 +131,7 @@ export default function RecordPanel({
                       autoFocus
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      className="field text-[14px] flex-1"
+                      className="field text-[15px] flex-1"
                     >
                       {f.options!.map((o) => (
                         <option key={o}>{o}</option>
@@ -147,14 +147,14 @@ export default function RecordPanel({
                         if (e.key === "Enter") save(f);
                         if (e.key === "Escape") setEditing("");
                       }}
-                      className="field text-[14px] flex-1"
+                      className="field text-[15px] flex-1"
                     />
                   )}
                   <button className="btn" disabled={busy} onClick={() => save(f)}>
                     Save
                   </button>
                   <button
-                    className="text-[14px] text-[var(--ink-soft)] underline underline-offset-4"
+                    className="text-[15px] text-[var(--ink-soft)] underline underline-offset-4"
                     onClick={() => setEditing("")}
                   >
                     cancel
@@ -163,14 +163,14 @@ export default function RecordPanel({
               ) : (
                 <div
                   onClick={() => open(f)}
-                  className="text-[14px] mt-0.5 px-2 py-1 -mx-2 rounded cursor-text hover:bg-[var(--wash)]"
+                  className="text-[15px] mt-0.5 px-2 py-1 -mx-2 rounded cursor-text hover:bg-[var(--wash)]"
                 >
                   {shown || <span className="text-[var(--ink-soft)] italic">not stated</span>}
                 </div>
               )}
 
               {src && (
-                <div className="text-[14px] font-array text-[var(--ink-dim)] tracking-wider mt-0.5">
+                <div className="text-[15px] font-array text-[var(--ink-dim)] tracking-wider mt-0.5">
                   {/* JSON.stringify used to run straight to screen here, so a field the
                       agent left empty read "WAS null" and a tag list came out with
                       brackets and quotes. undefined printed nothing at all, leaving a

@@ -117,45 +117,45 @@ export default function ScopePanel({
   }
 
   return (
-    <section className="panel p-5 space-y-5">
+    <section className="panel p-7 space-y-5">
       <div>
-        <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h2 className="text-[19px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
           Which rules bind this asset
         </h2>
-        <p className="text-[14px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
+        <p className="text-[15px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
           One estate, many rulebooks. A credit model serving EU customers and an internal document
           sorter are not under the same law, so the choice sits here rather than in one setting for
           the whole register.
         </p>
       </div>
 
-      {err && <p className="text-[14px] text-[var(--danger)]">{err}</p>}
+      {err && <p className="text-[15px] text-[var(--danger)]">{err}</p>}
 
       <div className="flex flex-wrap gap-5 items-start">
-        <label className="text-[14px]">
-          <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
+        <label className="text-[15px]">
+          <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
             company policy
           </div>
-          <select value={policy} onChange={(e) => setPolicy(e.target.value)} className="field text-[14px]">
+          <select value={policy} onChange={(e) => setPolicy(e.target.value)} className="field text-[15px]">
             {(avail?.policy_packs ?? []).map((p) => (
               <option key={p}>{p}</option>
             ))}
           </select>
         </label>
 
-        <label className="text-[14px]">
-          <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
+        <label className="text-[15px]">
+          <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
             primary regulation
           </div>
-          <select value={framework} onChange={(e) => setFramework(e.target.value)} className="field text-[14px]">
+          <select value={framework} onChange={(e) => setFramework(e.target.value)} className="field text-[15px]">
             {(avail?.framework_packs ?? []).map((p) => (
               <option key={p}>{p}</option>
             ))}
           </select>
         </label>
 
-        <div className="text-[14px]">
-          <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
+        <div className="text-[15px]">
+          <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
             also assessed under
           </div>
           {(avail?.framework_packs ?? []).filter((p) => p !== framework).length === 0 && (
@@ -179,14 +179,14 @@ export default function ScopePanel({
         </div>
 
         <div className="flex-1 min-w-[220px]">
-          <div className="text-[14px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
+          <div className="text-[15px] uppercase tracking-wide text-[var(--ink-soft)] mb-1">
             why this scope
           </div>
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. EU customers, so the Act applies"
-            className="field text-[14px] w-full"
+            className="field text-[15px] w-full"
           />
           <button className="btn mt-2" disabled={busy} onClick={applyScope}>
             Apply and re-score
@@ -195,15 +195,15 @@ export default function ScopePanel({
       </div>
 
       <div className="pt-4 border-t border-[var(--line)]">
-        <h3 className="text-[14px] font-semibold">Controls at this tier</h3>
-        <p className="text-[14px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
+        <h3 className="text-[15px] font-semibold">Controls at this tier</h3>
+        <p className="text-[15px] text-[var(--ink-soft)] mt-1 max-w-[62ch]">
           These are written as prose, so no code can honestly decide whether they are met. A person
           says, and signs, and it joins the audit chain.
         </p>
 
         <div className="mt-3">
           {controls.length === 0 && (
-            <p className="text-[14px] text-[var(--ink-soft)]">
+            <p className="text-[15px] text-[var(--ink-soft)]">
               No controls to show: this asset has no tier yet, so nothing has been narrowed down to.
             </p>
           )}
@@ -215,8 +215,8 @@ export default function ScopePanel({
               <span className={`${STATUS_CLASS[c.attested?.status ?? ""] ?? "sev sev-low"} w-[96px] text-center`}>
                 {(c.attested?.status ?? "unanswered").replace("_", " ").toUpperCase()}
               </span>
-              <span className="text-[14px] font-mono w-[76px] text-[var(--ink-soft)]">{c.id}</span>
-              <span className="text-[14px] flex-1 min-w-[200px]" title={c.requirement}>
+              <span className="text-[15px] font-mono w-[76px] text-[var(--ink-soft)]">{c.id}</span>
+              <span className="text-[15px] flex-1 min-w-[200px]" title={c.requirement}>
                 {c.title}
               </span>
               <span className="flex gap-2">
@@ -238,7 +238,7 @@ export default function ScopePanel({
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder={noteStatus === "not_applicable" ? "why does this control not apply?" : "what is missing?"}
-                    className="field text-[14px] flex-1"
+                    className="field text-[15px] flex-1"
                   />
                   <button className="btn" disabled={busy || !note.trim()} onClick={() => attest(c, noteStatus)}>
                     Save as {noteStatus.replace("_", " ")}
@@ -246,7 +246,7 @@ export default function ScopePanel({
                 </span>
               )}
               {c.attested?.note && (
-                <span className="w-full text-[14px] text-[var(--ink-soft)]">
+                <span className="w-full text-[15px] text-[var(--ink-soft)]">
                   {c.attested.note} &mdash; {c.attested.by}
                 </span>
               )}

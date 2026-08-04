@@ -234,12 +234,12 @@ export default function AssetDetail() {
 
   return (
     <main className="py-6">
-      <Link href="/tower" className="text-[14px] underline underline-offset-4">
+      <Link href="/tower" className="text-[15px] underline underline-offset-4">
         &larr; Control tower
       </Link>
 
       <div className="flex items-center gap-4 flex-wrap mt-4">
-        <h1 className="text-[28px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
+        <h1 className="text-[32px] font-extrabold" style={{ fontFamily: "var(--font-cabinet)" }}>
           {asset.name || state.asset_id}
         </h1>
         {tier && (
@@ -247,7 +247,7 @@ export default function AssetDetail() {
         )}
         {tier && !tierEdit && (
           <button
-            className="text-[14px] underline underline-offset-4 text-[var(--ink-soft)]"
+            className="text-[15px] underline underline-offset-4 text-[var(--ink-soft)]"
             onClick={() => setTierEdit(true)}
           >
             correct tier
@@ -255,7 +255,7 @@ export default function AssetDetail() {
         )}
         {tierEdit && (
           <span className="flex items-center gap-2 flex-wrap">
-            <select value={newTier} onChange={(e) => setNewTier(e.target.value)} className="field text-[14px]">
+            <select value={newTier} onChange={(e) => setNewTier(e.target.value)} className="field text-[15px]">
               {["unacceptable", "high", "limited", "minimal"].map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -266,13 +266,13 @@ export default function AssetDetail() {
               value={tierReason}
               onChange={(e) => setTierReason(e.target.value)}
               placeholder="why the assigned tier is wrong"
-              className="field text-[14px] w-64"
+              className="field text-[15px] w-64"
             />
             <button className="btn" disabled={busy !== "" || !tierReason.trim()} onClick={overrideTier}>
               Save
             </button>
             <button
-              className="text-[14px] underline underline-offset-4 text-[var(--ink-soft)]"
+              className="text-[15px] underline underline-offset-4 text-[var(--ink-soft)]"
               onClick={() => setTierEdit(false)}
             >
               cancel
@@ -280,34 +280,34 @@ export default function AssetDetail() {
           </span>
         )}
         <span
-          className={`px-2 py-0.5 rounded text-[14px] font-semibold uppercase ${
+          className={`px-2 py-0.5 rounded text-[15px] font-semibold uppercase ${
             asset.source === "pipeline" ? "bg-[var(--accent)] text-white" : "bg-[var(--line)] text-[var(--ink-soft)]"
           }`}
         >
           {asset.source}
         </span>
         {state.status === "processing" && (
-          <span className="text-[var(--accent)] animate-pulse text-[14px]">
+          <span className="text-[var(--accent)] animate-pulse text-[15px]">
             {STAGES[state.stage] || state.stage}...
           </span>
         )}
       </div>
 
       {pollFailed && (
-        <p className="text-[14px] text-[var(--danger)] mt-2">
+        <p className="text-[15px] text-[var(--danger)] mt-2">
           Connection trouble: showing the last known state, retrying every few seconds.
         </p>
       )}
       {state.status === "error" && (
         <div
-          className="mt-3 rounded-[3px] p-4 text-[14px]"
+          className="mt-3 rounded-[3px] p-4 text-[15px]"
           style={{ background: "var(--rust-wash)", color: "var(--rust)" }}
         >
           {state.error}
         </div>
       )}
-      {actError && <p className="text-[14px] text-[var(--danger)] mt-2">{actError}</p>}
-      {notice && <p className="text-[14px] text-[var(--accent)] mt-2">{notice}</p>}
+      {actError && <p className="text-[15px] text-[var(--danger)] mt-2">{actError}</p>}
+      {notice && <p className="text-[15px] text-[var(--accent)] mt-2">{notice}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)_360px] gap-10 mt-6 items-start">
         <nav className="lg:sticky lg:top-5 flex lg:flex-col gap-1 flex-wrap">
@@ -315,7 +315,7 @@ export default function AssetDetail() {
             <button
               key={s.key}
               onClick={() => setSection(s.key)}
-              className={`text-left font-array text-[14px] tracking-[0.12em] uppercase px-3 py-2 rounded-[3px] transition-colors ${
+              className={`text-left font-array text-[15px] tracking-[0.12em] uppercase px-3 py-2 rounded-[3px] transition-colors ${
                 section === s.key
                   ? "text-[var(--ink)] bg-[var(--accent-wash)]"
                   : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -346,9 +346,9 @@ export default function AssetDetail() {
           {section === "measure" && <MeasurementPanel assetId={id} onSaved={saved} />}
 
           {section === "findings" && (
-            <section className="panel p-5 space-y-3">
+            <section className="panel p-7 space-y-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+                <h2 className="text-[19px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
                   Findings ({findings.length})
                 </h2>
                 <button className="btn ghost ml-auto" onClick={() => setLogging(!logging)}>
@@ -360,7 +360,7 @@ export default function AssetDetail() {
                   pen test, an incident or a meeting simply could not be written down. */}
               {logging && (
                 <div className="border border-[var(--line)] rounded-[3px] p-3 space-y-2">
-                  <p className="text-[14px] text-[var(--ink-soft)]">
+                  <p className="text-[15px] text-[var(--ink-soft)]">
                     Something you already know is wrong. It joins the audit chain as raised by you,
                     and lands on the remediation board like any other finding.
                   </p>
@@ -369,13 +369,13 @@ export default function AssetDetail() {
                     value={logPlain}
                     onChange={(e) => setLogPlain(e.target.value)}
                     placeholder="What is wrong, in one sentence"
-                    className="field w-full text-[14px]"
+                    className="field w-full text-[15px]"
                   />
                   <div className="flex gap-2 flex-wrap items-center">
                     <select
                       value={logSeverity}
                       onChange={(e) => setLogSeverity(e.target.value)}
-                      className="field text-[14px]"
+                      className="field text-[15px]"
                     >
                       {["high", "medium", "low"].map((s) => (
                         <option key={s} value={s}>{s} severity</option>
@@ -385,7 +385,7 @@ export default function AssetDetail() {
                       value={logEvidence}
                       onChange={(e) => setLogEvidence(e.target.value)}
                       placeholder="How do you know? (report, ticket, date)"
-                      className="field text-[14px] flex-1 min-w-[200px]"
+                      className="field text-[15px] flex-1 min-w-[200px]"
                     />
                   </div>
                   <button className="btn" disabled={busy !== "" || !logPlain.trim()} onClick={logIssue}>
@@ -394,7 +394,7 @@ export default function AssetDetail() {
                 </div>
               )}
               {findings.length === 0 && (
-                <p className="text-[14px] text-[var(--ink-soft)]">
+                <p className="text-[15px] text-[var(--ink-soft)]">
                   {state.status === "processing" ? "Assessment still running." : "No findings: compliant."}
                 </p>
               )}
@@ -402,17 +402,17 @@ export default function AssetDetail() {
                 <div key={f.finding_id} className="border-t border-[var(--line)] pt-3 first:border-t-0">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className={sevClass(f.severity)}>{f.severity}</span>
-                    <span className="text-[14px] font-mono">{f.control_id}</span>
-                    <span className="text-[14px] text-[var(--ink-soft)]">
+                    <span className="text-[15px] font-mono">{f.control_id}</span>
+                    <span className="text-[15px] text-[var(--ink-soft)]">
                       by {f.inspector.replaceAll("_", " ")}
                     </span>
-                    <span className="ml-auto text-[14px] text-[var(--ink-soft)]">{f.finding_id}</span>
+                    <span className="ml-auto text-[15px] text-[var(--ink-soft)]">{f.finding_id}</span>
                   </div>
-                  <div className="text-[14px] font-medium mt-1.5">{f.plain}</div>
-                  <div className="text-[14px] text-[var(--ink-soft)] mt-0.5">Evidence: {f.evidence}</div>
-                  <div className="text-[14px]">Fix: {f.remediation}</div>
+                  <div className="text-[15px] font-medium mt-1.5">{f.plain}</div>
+                  <div className="text-[15px] text-[var(--ink-soft)] mt-0.5">Evidence: {f.evidence}</div>
+                  <div className="text-[15px]">Fix: {f.remediation}</div>
 
-                  <div className="text-[14px] mt-1">
+                  <div className="text-[15px] mt-1">
                     <button
                       className="underline underline-offset-4 text-[var(--ink-soft)]"
                       onClick={() => loadFiles(f.finding_id)}
@@ -442,7 +442,7 @@ export default function AssetDetail() {
 
                   <div className="flex items-center gap-3 pt-2 flex-wrap">
                     {f.routed_to ? (
-                      <span className="text-[14px]">
+                      <span className="text-[15px]">
                         Routed to <b>{f.routed_to}</b>
                       </span>
                     ) : (
@@ -452,7 +452,7 @@ export default function AssetDetail() {
                     )}
 
                     {f.review ? (
-                      <span className="text-[14px]">
+                      <span className="text-[15px]">
                         <b>{f.review.verdict === "approved" ? "Confirmed" : "Overridden"}</b> by {f.review.by}
                         {f.review.reason && (
                           <span className="text-[var(--ink-soft)]"> &mdash; {f.review.reason}</span>
@@ -488,7 +488,7 @@ export default function AssetDetail() {
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
                         placeholder="Why does this not apply? (recorded in the audit trail)"
-                        className="field flex-1 text-[14px]"
+                        className="field flex-1 text-[15px]"
                       />
                       <button
                         className="btn"
@@ -498,7 +498,7 @@ export default function AssetDetail() {
                         Save override
                       </button>
                       <button
-                        className="text-[14px] underline underline-offset-4 text-[var(--ink-soft)]"
+                        className="text-[15px] underline underline-offset-4 text-[var(--ink-soft)]"
                         onClick={() => {
                           setOverriding("");
                           setReason("");
@@ -514,9 +514,9 @@ export default function AssetDetail() {
           )}
 
           {section === "audit" && (
-            <section className="panel p-5 space-y-3">
+            <section className="panel p-7 space-y-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-[17px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
+                <h2 className="text-[19px] font-bold" style={{ fontFamily: "var(--font-cabinet)" }}>
                   Audit trail
                 </h2>
                 {audit && (
@@ -532,7 +532,7 @@ export default function AssetDetail() {
                 {(audit?.entries ?? []).map((e, i) => (
                   <li
                     key={i}
-                    className={`text-[14px] font-mono px-2 py-1 rounded ${
+                    className={`text-[15px] font-mono px-2 py-1 rounded ${
                       audit?.broken_at !== null && audit?.broken_at !== undefined && i >= audit.broken_at
                         ? "bg-[var(--rust-wash)] text-[var(--rust)]"
                         : ""
@@ -542,7 +542,7 @@ export default function AssetDetail() {
                   </li>
                 ))}
                 {audit?.count === 0 && (
-                  <li className="text-[14px] text-[var(--ink-soft)]">
+                  <li className="text-[15px] text-[var(--ink-soft)]">
                     Empty chain: this is a seeded fixture, no pipeline ever ran on it.
                   </li>
                 )}
