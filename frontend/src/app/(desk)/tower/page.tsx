@@ -228,6 +228,7 @@ export default function Tower() {
   const [reg, setReg] = useState(EMPTY_REG);
   const [rows, setRows] = useState<Row[]>([]);
   const [packs, setPacks] = useState<Packs | null>(null);
+  const [avail, setAvail] = useState<{ policy_packs: string[]; framework_packs: string[] } | null>(null);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
@@ -277,6 +278,7 @@ export default function Tower() {
         setPollFailed(true);
       });
     api("/packs").then(setPacks).catch(() => {});
+    api("/packs/available").then(setAvail).catch(() => {});
     api("/metrics").then(setMetrics).catch(() => {});
   }, []);
 
@@ -337,6 +339,7 @@ export default function Tower() {
       setNotice(
         `Pack swapped to ${r.rescore.pack}: ${r.rescore.assets_rescored} assets re-scored, zero code changed.`
       );
+      if (r.active) setPacks(r.active);
       refresh();
     } catch (e) {
       setNotice(String(e));
@@ -564,16 +567,29 @@ export default function Tower() {
             </>
           )}
           {user?.role === "admin" && (
-            <div className="ml-auto flex gap-2">
-              <button
-                className="btn"
+            <div className="ml-auto flex items-center gap-2">
+              <label className="text-[13px] text-[var(--ink-soft)]">policy</label>
+              <select
+                className="field text-[13px]"
                 disabled={busy !== ""}
-                onClick={() =>
-                  swapPack(null, packs?.policy_pack.id.startsWith("acme") ? "globex" : "acme")
-                }
+                value={avail?.policy_packs.find((s) => packs?.policy_pack.id.startsWith(s)) ?? ""}
+                onChange={(e) => swapPack(null, e.target.value)}
               >
-                Swap policy pack
-              </button>
+                {(avail?.policy_packs ?? []).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <label className="text-[13px] text-[var(--ink-soft)]">framework</label>
+              <select
+                className="field text-[13px]"
+                disabled={busy !== ""}
+                value={avail?.framework_packs.find((s) => packs?.framework_pack.id.startsWith(s)) ?? ""}
+                onChange={(e) => swapPack(e.target.value, null)}
+              >
+                {(avail?.framework_packs ?? []).map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
               <button className="btn" disabled={busy !== ""} onClick={runSweep}>
                 Run nightly sweep
               </button>
